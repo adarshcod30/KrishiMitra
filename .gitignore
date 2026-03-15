@@ -1,0 +1,26 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# ML artifacts
+ml-service/artifacts/*.joblib
+ml-service/artifacts/*.json
+!ml-service/artifacts/.gitkeep
+ml-service/catboost_info/
+
+# Build caches
+tsconfig.tsbuildinfo

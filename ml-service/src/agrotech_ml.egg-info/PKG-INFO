@@ -1,0 +1,67 @@
+Metadata-Version: 2.4
+Name: agrotech-ml
+Version: 0.1.0
+Summary: ML-heavy crop recommendation service with FastAPI
+Requires-Python: <3.15,>=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi==0.135.1
+Requires-Dist: uvicorn[standard]==0.41.0
+Requires-Dist: numpy==2.4.3
+Requires-Dist: pandas==3.0.1
+Requires-Dist: scikit-learn==1.8.0
+Requires-Dist: xgboost==3.2.0
+Requires-Dist: lightgbm==4.6.0
+Requires-Dist: catboost==1.2.10
+Requires-Dist: optuna==4.7.0
+Requires-Dist: pydantic==2.12.5
+Requires-Dist: pydantic-settings==2.13.1
+Requires-Dist: joblib==1.5.3
+Requires-Dist: python-multipart==0.0.22
+Requires-Dist: httpx==0.28.1
+
+# AgroTech Unified Farmer Service
+
+Advanced FastAPI backend for a multilingual farmer platform.
+
+## Included capabilities
+
+- Crop recommendation (ensemble classification)
+- Irrigation scheduler (regression model)
+- Disease diagnosis from symptoms (text classifier)
+- Fertilizer advisory model
+- Weather forecast (Open-Meteo integration)
+- Government scheme navigator
+- Marketplace prices, equipment rental catalog, investor opportunities
+- Profile and farm record endpoints
+
+## Quick start
+
+```bash
+cd ml-service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+python scripts/bootstrap_datasets.py
+python -m agrotech_ml.train
+python -m uvicorn agrotech_ml.api:app --reload --port 8000
+```
+
+## Key endpoints
+
+- `GET /health`
+- `GET /languages`
+- `GET /dashboard/summary`
+- `GET /metadata`
+- `POST /predict`
+- `POST /irrigation/schedule`
+- `POST /disease/diagnose`
+- `POST /fertilizer/recommend`
+- `GET /weather/forecast`
+- `POST /schemes/recommend`
+- `GET /market/prices`
+- `GET /rentals/tools`
+- `GET /investor/opportunities`
+- `GET /knowledge/library`
+- `POST /profiles/user`
+- `POST /profiles/farms`
+

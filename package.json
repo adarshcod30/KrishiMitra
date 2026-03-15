@@ -1,0 +1,36 @@
+{
+  "name": "agrotech-ml-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ML-first crop recommendation platform with Next.js + Python",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "bootstrap:data": "cd ml-service && ./agrotech/bin/python scripts/bootstrap_datasets.py",
+    "dev:ml": "cd ml-service && ./agrotech/bin/python -m uvicorn agrotech_ml.api:app --reload --port 8000",
+    "train:ml": "cd ml-service && ./agrotech/bin/python -m agrotech_ml.train"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "framer-motion": "12.36.0",
+    "next": "16.1.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "3.8.0",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.1.6",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=80", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agrotech-ml"
+version = "0.1.0"
+description = "ML-heavy crop recommendation service with FastAPI"
+readme = "README.md"
+requires-python = ">=3.13,<3.15"
+dependencies = [
+  "fastapi==0.135.1",
+  "uvicorn[standard]==0.41.0",
+  "numpy==2.4.3",
+  "pandas==3.0.1",
+  "scikit-learn==1.8.0",
+  "xgboost==3.2.0",
+  "lightgbm==4.6.0",
+  "catboost==1.2.10",
+  "optuna==4.7.0",
+  "pydantic==2.12.5",
+  "pydantic-settings==2.13.1",
+  "joblib==1.5.3",
+  "python-multipart==0.0.22",
+  "httpx==0.28.1"
+]
+
+[project.scripts]
+agrotech-train = "agrotech_ml.train:main"
+agrotech-api = "agrotech_ml.api:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
