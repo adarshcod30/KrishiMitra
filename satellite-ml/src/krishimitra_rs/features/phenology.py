@@ -19,6 +19,11 @@ PHENOLOGY_NAMES = (
     "sos_t", "eos_t", "lgp", "greenup_rate", "senescence_rate", "auc",
 )
 
+# ``np.trapz`` was renamed to ``np.trapezoid`` in numpy 2.0 and REMOVED in 2.3.
+# Resolve lazily (never as a default argument, which numpy would evaluate
+# eagerly and blow up with AttributeError on numpy>=2.3).
+_TRAPEZOID = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+
 # Growth-stage codes used by the stress detector and the irrigation advisory.
 STAGE_NAMES = {-1: "fallow", 0: "sowing", 1: "vegetative", 2: "flowering", 3: "maturity"}
 
@@ -55,8 +60,7 @@ def phenology_metrics(ndvi: np.ndarray, frac: float = 0.3) -> dict[str, np.ndarr
 
     greenup = (pos_val - base) / np.clip(pos_t - sos_t, 1, None)
     senescence = (pos_val - eos_val) / np.clip(eos_t - pos_t, 1, None)
-    _trapz = getattr(np, "trapezoid", np.trapz)    # numpy>=2 renamed trapz
-    auc = _trapz(s, axis=0).astype(np.float32)     # seasonal integral (biomass proxy)
+    auc = _TRAPEZOID(s, axis=0).astype(np.float32)  # seasonal integral (biomass proxy)
 
     return {
         "ndvi_min": base.astype(np.float32),

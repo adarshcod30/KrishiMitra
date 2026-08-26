@@ -20,20 +20,35 @@ def build_validation_report(cls_result, stress_result, wb, adv, cube, cfg) -> di
 
     # --- 1. classification ---
     best = cls_result.best_model
-    cls_metrics = cls_result.metrics[best]
-    oa = cls_metrics["overall_accuracy"]
-    report["classification"] = {
-        "best_model": best,
-        "overall_accuracy": oa,
-        "kappa": cls_metrics["kappa"],
-        "target_oa": 0.85,
-        "meets_target": bool(oa >= 0.85),
-        "per_class": cls_metrics["per_class"],
-        "all_models": {m: {"overall_accuracy": cls_result.metrics[m]["overall_accuracy"],
-                           "kappa": cls_result.metrics[m]["kappa"]} for m in cls_result.metrics},
-        "n_train": int(cls_result.ground_truth.train_idx.size),
-        "n_val": int(cls_result.ground_truth.val_idx.size),
-    }
+    cls_metrics = cls_result.metrics.get(best)
+    if cls_metrics is None:
+        # No ground-truth labels -> supervised crop typing was skipped and an
+        # unsupervised cropland mask was used. Say so instead of inventing an
+        # accuracy for a model that was never trained.
+        report["classification"] = {
+            "best_model": best,
+            "supervised": False,
+            "skipped": True,
+            "reason": "cube carries no ground-truth labels; supervised crop-type "
+                      "classification skipped, unsupervised cropland mask used",
+            "cropland_area_pct": round(float((cls_result.crop_map != 0).mean()) * 100, 1),
+        }
+    else:
+        oa = cls_metrics["overall_accuracy"]
+        report["classification"] = {
+            "best_model": best,
+            "supervised": True,
+            "overall_accuracy": oa,
+            "kappa": cls_metrics["kappa"],
+            "target_oa": 0.85,
+            "meets_target": bool(oa >= 0.85),
+            "per_class": cls_metrics["per_class"],
+            "all_models": {m: {"overall_accuracy": cls_result.metrics[m]["overall_accuracy"],
+                               "kappa": cls_result.metrics[m]["kappa"]}
+                           for m in cls_result.metrics},
+            "n_train": int(cls_result.ground_truth.train_idx.size),
+            "n_val": int(cls_result.ground_truth.val_idx.size),
+        }
 
     # --- 2. moisture stress ---
     report["moisture_stress"] = {

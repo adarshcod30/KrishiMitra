@@ -5,9 +5,8 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState
+  useSyncExternalStore
 } from "react";
 
 import type { FarmerSearchResult } from "@/lib/types";
@@ -22,33 +21,91 @@ const STORAGE_KEY = "agrotech.activeFarmer";
 
 const FarmerSessionContext = createContext<FarmerSessionValue | null>(null);
 
-export function FarmerSessionProvider({ children }: { children: ReactNode }) {
-  const [activeFarmer, setActiveFarmerState] = useState<FarmerSearchResult | null>(null);
+/**
+ * The active farmer lives in localStorage, which is an external store: it is
+ * read through `useSyncExternalStore` instead of being copied into state from
+ * an effect.
+ *
+ * `getServerSnapshot` returns `null`, and React uses that same snapshot for the
+ * client's hydration render, so server and client markup agree and the stored
+ * farmer appears in the commit immediately after hydration. No `mounted` flag
+ * is needed to avoid a mismatch.
+ */
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setActiveFarmerState(JSON.parse(stored) as FarmerSearchResult);
-      } catch {
-        // Ignore
-      }
-    }
-  }, []);
+function emit() {
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+// `getSnapshot` must be referentially stable between reads, so the parsed
+// object is cached against the raw string it was parsed from.
+let cachedRaw: string | null = null;
+let cachedFarmer: FarmerSearchResult | null = null;
+/** Used only when localStorage is unavailable (private mode, blocked cookies). */
+let memoryFarmer: FarmerSearchResult | null = null;
+let storageAvailable = true;
+
+function parseFarmer(raw: string): FarmerSearchResult | null {
+  try {
+    return JSON.parse(raw) as FarmerSearchResult;
+  } catch {
+    return null;
+  }
+}
+
+function getSnapshot(): FarmerSearchResult | null {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+    storageAvailable = true;
+  } catch {
+    storageAvailable = false;
+  }
+
+  if (!storageAvailable) {
+    return memoryFarmer;
+  }
+
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedFarmer = raw ? parseFarmer(raw) : null;
+  }
+  return cachedFarmer;
+}
+
+function getServerSnapshot(): FarmerSearchResult | null {
+  return null;
+}
+
+export function FarmerSessionProvider({ children }: { children: ReactNode }) {
+  const activeFarmer = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const setActiveFarmer = useCallback((farmer: FarmerSearchResult | null) => {
-    setActiveFarmerState(farmer);
-    if (farmer) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(farmer));
-      return;
+    memoryFarmer = farmer;
+    try {
+      if (farmer) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(farmer));
+      } else {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch {
+      // Persistence failed; the in-memory value above still drives this tab.
     }
-    window.localStorage.removeItem(STORAGE_KEY);
+    emit();
   }, []);
 
   const clearActiveFarmer = useCallback(() => {
-    setActiveFarmerState(null);
-    window.localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    setActiveFarmer(null);
+  }, [setActiveFarmer]);
 
   const value = useMemo(
     () => ({ activeFarmer, setActiveFarmer, clearActiveFarmer }),

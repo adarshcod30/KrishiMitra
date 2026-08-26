@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import joblib
@@ -26,8 +28,10 @@ from agrotech_ml.models.schemas import (
     SoilWeatherInput,
 )
 from agrotech_ml.core.settings import AppSettings
-from agrotech_ml.services.training import train_models
 from agrotech_ml.services.translation_service import translate_many, translate_text
+
+
+logger = logging.getLogger(__name__)
 
 
 CROP_TIPS = {
@@ -343,32 +347,72 @@ def clear_artifact_cache() -> None:
     _load_irrigation_artifact.cache_clear()
 
 
-def ensure_model_artifacts(settings: AppSettings) -> None:
-    required = [
+class ModelArtifactsMissing(RuntimeError):
+    """Raised when the trained artifacts a request needs are not on disk.
+
+    Deliberately NOT recoverable in-process: training takes ~35 s and 173 MB, so
+    doing it on a request (or on container startup) turns a cold start into a
+    timeout. Operators either ship artifacts in the image, point
+    ``AGROTECH_MODELS_GCS_URI`` at a bucket, or run the training entrypoint.
+    """
+
+
+def required_artifact_paths(settings: AppSettings) -> list[Path]:
+    return [
         settings.model_path,
         settings.metadata_path,
         settings.disease_model_path,
         settings.fertilizer_model_path,
         settings.irrigation_model_path,
     ]
-    import os
-    try:
-        if not settings.artifacts_dir.exists():
-            settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
-        
-        available_files = set(os.listdir(str(settings.artifacts_dir)))
-        required_names = {path.name for path in required}
-        
-        print(f"DEBUG: required_names: {required_names}")
-        print(f"DEBUG: missing_names: {required_names - available_files}")
-        
-        if required_names.issubset(available_files):
+
+
+def missing_artifacts(settings: AppSettings) -> list[Path]:
+    return [path for path in required_artifact_paths(settings) if not path.is_file()]
+
+
+def models_ready(settings: AppSettings) -> bool:
+    return not missing_artifacts(settings)
+
+
+def artifacts_missing_message(settings: AppSettings, missing: list[Path]) -> str:
+    names = ", ".join(path.name for path in missing)
+    return (
+        f"Model artifacts are missing from {settings.artifacts_dir}: {names}. "
+        "Run `agrotech-train` (or `python -m agrotech_ml.services.train`) to build them, "
+        "or set AGROTECH_MODELS_GCS_URI to a bucket that already holds them. "
+        "Training is never performed on the request path."
+    )
+
+
+def ensure_model_artifacts(settings: AppSettings) -> None:
+    """Verify the artifacts exist, pulling them from GCS once if configured.
+
+    Never trains. Raises :class:`ModelArtifactsMissing` with operator
+    instructions when the artifacts still cannot be found.
+    """
+    missing = missing_artifacts(settings)
+    if not missing:
+        return
+
+    # A configured bucket is the supported way to materialise artifacts in a
+    # fresh container; sync_models is a no-op when no URI is set.
+    if settings.models_gcs_uri:
+        from agrotech_ml.cloud.models_sync import sync_models
+
+        try:
+            sync_models(settings)
+        except Exception as exc:  # noqa: BLE001 - reported through the error below
+            logger.warning("Model sync from %s failed: %s", settings.models_gcs_uri, exc)
+        clear_artifact_cache()
+        missing = missing_artifacts(settings)
+        if not missing:
             return
-    except Exception:
-        pass
-    
-    train_models(settings)
-    clear_artifact_cache()
+
+    message = artifacts_missing_message(settings, missing)
+    logger.error(message)
+    raise ModelArtifactsMissing(message)
+
 
 def run_prediction(payload: SoilWeatherInput, settings: AppSettings, top_k: int = 3) -> PredictionResponse:
     ensure_model_artifacts(settings)

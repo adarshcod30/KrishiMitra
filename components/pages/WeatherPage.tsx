@@ -3,29 +3,41 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchWeather, searchLocations } from "@/lib/api";
+import { MIN_LOCATION_SEARCH_LENGTH } from "@/lib/constants";
+import { toUserMessage } from "@/lib/errors";
 import type { LocationSearchItem, WeatherResponse } from "@/lib/types";
 
 export function WeatherPage() {
   const { t, language } = useLanguage();
-  const { activeFarmer } = useFarmerSession();
   const [query, setQuery] = useState("");
   const [locations, setLocations] = useState<LocationSearchItem[]>([]);
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const isQueryTooShort = query.trim().length < MIN_LOCATION_SEARCH_LENGTH;
 
   async function handleSearch() {
-    if (query.length < 2) return;
+    if (isQueryTooShort) {
+      setError(`Enter at least ${MIN_LOCATION_SEARCH_LENGTH} characters to search for a location.`);
+      return;
+    }
     setSearching(true);
+    setError(null);
     try {
       const results = await searchLocations(query);
       setLocations(results);
-    } catch {
+      setHasSearched(true);
+    } catch (caught) {
       setLocations([]);
+      setHasSearched(true);
+      setError(toUserMessage(caught, t("feedback.searchFailed")));
     } finally {
       setSearching(false);
     }
@@ -33,13 +45,15 @@ export function WeatherPage() {
 
   async function handleSelectLocation(loc: LocationSearchItem) {
     setBusy(true);
+    setError(null);
     setLocations([]);
     setQuery(loc.name + (loc.admin1 ? `, ${loc.admin1}` : ""));
     try {
       const result = await fetchWeather(loc.latitude, loc.longitude, language);
       setWeather(result);
-    } catch {
+    } catch (caught) {
       setWeather(null);
+      setError(toUserMessage(caught, t("feedback.loadFailed")));
     } finally {
       setBusy(false);
     }
@@ -64,10 +78,21 @@ export function WeatherPage() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
-            <button type="button" className="primary-btn small-btn" onClick={handleSearch}>
+            <button
+              type="button"
+              className="primary-btn small-btn"
+              onClick={handleSearch}
+              disabled={searching || isQueryTooShort}
+            >
               {searching ? t("common.loading") : t("common.search")}
             </button>
           </div>
+
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
+
+          {!error && hasSearched && !searching && locations.length === 0 && (
+            <p className="no-results-text">{t("shell.noSearchResults")}</p>
+          )}
 
           {locations.length > 0 && (
             <div className="search-result-list" style={{ marginTop: "0.8rem" }}>
@@ -156,7 +181,7 @@ export function WeatherPage() {
                     <span className="text-xl">🌿</span>
                     <span className="tips-title mb-0">{t("weather.soilHint")}</span>
                   </div>
-                  <p className="tips-content italic">"{weather.soil_hint}"</p>
+                  <p className="tips-content italic">&ldquo;{weather.soil_hint}&rdquo;</p>
                 </div>
               )}
             </div>

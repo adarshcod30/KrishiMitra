@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
 import { FarmerSearchPanel } from "@/components/farmers/FarmerSearchPanel";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { ErrorState } from "@/components/ui/AsyncState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchDashboardSummary } from "@/lib/api";
-import type { DashboardSummary } from "@/lib/types";
+import { useAsyncResource } from "@/lib/hooks";
 
 const FEATURE_CARDS = [
   { href: "/dashboard/crop-intelligence", titleKey: "nav.crop", descKey: "dashboard.cropDesc", icon: "🌾", bg: "rgba(16, 185, 129, 0.05)" },
@@ -24,11 +24,9 @@ const FEATURE_CARDS = [
 
 export function DashboardHomePage() {
   const { t } = useLanguage();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-
-  useEffect(() => {
-    void fetchDashboardSummary().then(setSummary).catch(() => null);
-  }, []);
+  const loadSummary = useCallback(() => fetchDashboardSummary(), []);
+  const summaryResource = useAsyncResource(loadSummary, t("feedback.loadFailed"));
+  const summary = summaryResource.data;
 
   return (
     <div className="page-container">
@@ -41,22 +39,37 @@ export function DashboardHomePage() {
 
       <div className="surface-card summary-card">
         <h3 className="section-title">📊 {t("dashboard.quickInsights")}</h3>
-        <div className="stats-row">
-          <div className="stat-item">
-            <span className="stat-label">{t("dashboard.totalFarmers")}</span>
-            <strong className="stat-value">{summary?.active_users ?? 0}</strong>
+        {summaryResource.status === "error" ? (
+          // Showing zeroes for a failed request would be a lie, so the numbers
+          // are replaced by the reason plus a way to retry.
+          <ErrorState
+            message={summaryResource.error ?? t("feedback.loadFailed")}
+            onRetry={summaryResource.reload}
+          />
+        ) : (
+          <div className="stats-row">
+            <div className="stat-item">
+              <span className="stat-label">{t("dashboard.totalFarmers")}</span>
+              <strong className="stat-value">
+                {summaryResource.isLoading ? "…" : summary?.active_users ?? 0}
+              </strong>
+            </div>
+            <div className="divider" />
+            <div className="stat-item">
+              <span className="stat-label">{t("dashboard.totalFarms")}</span>
+              <strong className="stat-value">
+                {summaryResource.isLoading ? "…" : summary?.total_farms ?? 0}
+              </strong>
+            </div>
+            <div className="divider" />
+            <div className="stat-item">
+              <span className="stat-label">{t("dashboard.savedRecords")}</span>
+              <strong className="stat-value">
+                {summaryResource.isLoading ? "…" : summary?.advisory_runs ?? 0}
+              </strong>
+            </div>
           </div>
-          <div className="divider" />
-          <div className="stat-item">
-            <span className="stat-label">{t("dashboard.totalFarms")}</span>
-            <strong className="stat-value">{summary?.total_farms ?? 0}</strong>
-          </div>
-          <div className="divider" />
-          <div className="stat-item">
-            <span className="stat-label">{t("dashboard.savedRecords")}</span>
-            <strong className="stat-value">{summary?.advisory_runs ?? 0}</strong>
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="dashboard-grid mt-4">

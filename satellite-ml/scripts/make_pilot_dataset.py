@@ -33,7 +33,7 @@ def main() -> int:
 
     print(f"Building ARD cube (source={cfg.data.get('source')}) ...")
     cube = get_cube(cfg)
-    out = Path(args.out) if args.out else (cfg.root / "data" / "processed" / "pilot_cube.npz")
+    out = Path(args.out) if args.out else (cfg.base_dir / "data" / "processed" / "pilot_cube.npz")
     save_cube(cube, out)
 
     print(f"Saved cube -> {out}")

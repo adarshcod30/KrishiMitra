@@ -1,49 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { AsyncSection } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchMarketPrices } from "@/lib/api";
-import type { MarketPriceItem } from "@/lib/types";
+import { useAsyncResource } from "@/lib/hooks";
 
 export function MarketPricesPage() {
   const { t, language } = useLanguage();
-  const [prices, setPrices] = useState<MarketPriceItem[]>([]);
   const [cropFilter, setCropFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  async function loadPrices() {
-    setBusy(true);
-    try {
-      const result = await fetchMarketPrices(language, {
-        crop: cropFilter || undefined,
-        state: stateFilter || undefined,
-      });
-      setPrices(result);
-    } catch {
-      setPrices([]);
-    } finally {
-      setBusy(false);
-    }
+  // Filters are applied on demand (Search button), not on every keystroke, so
+  // they are read through a ref instead of being loader dependencies.
+  const filtersRef = useRef({ crop: "", state: "" });
+
+  const loadPrices = useCallback(
+    () =>
+      fetchMarketPrices(language, {
+        crop: filtersRef.current.crop || undefined,
+        state: filtersRef.current.state || undefined,
+      }),
+    [language]
+  );
+
+  const pricesResource = useAsyncResource(loadPrices, t("feedback.loadFailed"));
+  const priceCount = pricesResource.data?.length ?? 0;
+
+  function applyFilters() {
+    filtersRef.current = { crop: cropFilter, state: stateFilter };
+    pricesResource.reload();
   }
-
-  useEffect(() => {
-    loadPrices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
 
   const trendIcon = (trend: string) => {
     if (trend === "up") return "📈";
     if (trend === "down") return "📉";
     return "➡️";
-  };
-
-  const trendClass = (trend: string) => {
-    if (trend === "up") return "trend-up";
-    if (trend === "down") return "trend-down";
-    return "trend-stable";
   };
 
   return (
@@ -71,8 +65,13 @@ export function MarketPricesPage() {
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value)}
             />
-            <button type="button" className="primary-btn small-btn" onClick={loadPrices}>
-              {busy ? t("common.loading") : t("common.search")}
+            <button
+              type="button"
+              className="primary-btn small-btn"
+              onClick={applyFilters}
+              disabled={pricesResource.isLoading}
+            >
+              {pricesResource.isLoading ? t("common.loading") : t("common.search")}
             </button>
           </div>
 
@@ -97,9 +96,11 @@ export function MarketPricesPage() {
               onClick={() => {
                 setCropFilter("");
                 setStateFilter("");
+                filtersRef.current = { crop: "", state: "" };
+                pricesResource.reload();
               }}
             >
-              Reset Filters
+              {t("common.reset")}
             </button>
           </div>
         </div>
@@ -108,14 +109,20 @@ export function MarketPricesPage() {
       <section className="surface-card">
         <div className="flex items-center justify-between mb-6">
           <h3 className="mb-0">📊 {t("market.priceTable")}</h3>
-          {prices.length > 0 && (
+          {priceCount > 0 && (
             <div className="text-xs font-bold text-muted bg-subtle px-3 py-1 rounded-full uppercase tracking-widest">
-              {prices.length} {t("common.results")}
+              {priceCount} {t("common.results")}
             </div>
           )}
         </div>
 
-        {prices.length > 0 ? (
+        <AsyncSection
+          resource={pricesResource}
+          icon="📊"
+          emptyMessage={t("market.empty")}
+          isEmpty={(items) => items.length === 0}
+        >
+          {(prices) => (
           <div className="recommendation-grid animate-in fade-in duration-500">
             {prices.map((item, i) => (
               <div key={`${item.crop}-${item.mandi}-${i}`} className="premium-card">
@@ -145,12 +152,8 @@ export function MarketPricesPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="empty-state-illust">
-            <div className="illust-icon">📊</div>
-            <p className="muted-copy">{busy ? t("common.loading") : t("market.empty")}</p>
-          </div>
-        )}
+          )}
+        </AsyncSection>
       </section>
     </div>
   );

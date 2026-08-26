@@ -1,5 +1,7 @@
 # Core pipeline — everything runs on these (no geospatial system libs required).
-numpy>=1.24
+# numpy 2.3 removed np.trapz; the code handles both spellings, but keep a
+# compatible window so a clean install cannot land on an untested major.
+numpy>=1.26,<3
 pandas>=2.0
 scipy>=1.10
 scikit-learn>=1.3

@@ -3,11 +3,13 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getIrrigationSchedule } from "@/lib/api";
 import { DEFAULT_IRRIGATION_PAYLOAD } from "@/lib/constants";
+import { toUserMessage } from "@/lib/errors";
 import type { IrrigationResponse } from "@/lib/types";
 
 export function IrrigationPlannerPage() {
@@ -16,9 +18,11 @@ export function IrrigationPlannerPage() {
   const [input, setInput] = useState(DEFAULT_IRRIGATION_PAYLOAD);
   const [result, setResult] = useState<IrrigationResponse | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     setBusy(true);
+    setError(null);
     try {
       const response = await getIrrigationSchedule({
         ...input,
@@ -27,6 +31,9 @@ export function IrrigationPlannerPage() {
         mobile: activeFarmer?.mobile
       });
       setResult(response);
+    } catch (caught) {
+      // Without this the rejection is unhandled and the spinner just stops.
+      setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
@@ -100,7 +107,8 @@ export function IrrigationPlannerPage() {
               />
             </label>
           </div>
-          <button type="button" className="primary-btn" onClick={handleGenerate}>
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
+          <button type="button" className="primary-btn" onClick={handleGenerate} disabled={busy}>
             {busy ? t("common.loading") : t("common.generate")}
           </button>
         </article>
@@ -115,7 +123,9 @@ export function IrrigationPlannerPage() {
             )}
           </div>
 
-          {result ? (
+          {busy && !result ? (
+            <LoadingState icon="💧" />
+          ) : result ? (
             <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
               <div className="recommendation-header">
                 <div className="crop-icon-wrapper">💧</div>

@@ -22,12 +22,26 @@ Bands are sampled to the config grid with ``ee.Image.sampleRectangle``; for
 large AOIs switch to ``geemap.ee_export_image`` / Earth Engine batch export and
 load the GeoTIFFs instead (see ``_sample_to_array``).
 
+Authentication
+--------------
+``earthengine authenticate`` is fine on a laptop but impossible in a batch
+container, so :func:`initialize_ee` prefers a **service account**:
+
+* ``EE_SERVICE_ACCOUNT_JSON`` — the key as raw JSON *or* a path to a key file;
+* ``EE_PROJECT`` (or ``GOOGLE_CLOUD_PROJECT``) — the Cloud project to bill.
+
+With neither set it falls back to Application Default Credentials / the local
+``earthengine authenticate`` token, so laptop runs are unchanged.
+
 NOTE: this module is import-safe without earthengine-api installed — the import
 error is only raised when you actually call :func:`ingest_gee_cube`.
 """
 from __future__ import annotations
 
 import datetime as _dt
+import json
+import os
+from pathlib import Path
 
 import numpy as np
 
@@ -45,6 +59,45 @@ def _require_ee():
             "'geemap'). Install with:  pip install earthengine-api geemap  and "
             "authenticate with:  earthengine authenticate"
         ) from exc
+
+
+def _service_account_key() -> dict | None:
+    """Read the EE service-account key from env (raw JSON or a file path)."""
+    raw = (os.environ.get("EE_SERVICE_ACCOUNT_JSON") or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("{"):
+        return json.loads(raw)
+    p = Path(raw)
+    if not p.is_file():
+        raise FileNotFoundError(
+            f"EE_SERVICE_ACCOUNT_JSON points at {p}, which does not exist. Set it to "
+            "the key file path or to the key JSON itself."
+        )
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def initialize_ee(ee) -> None:
+    """Initialise Earth Engine for both laptop and container runs.
+
+    Service-account credentials (``EE_SERVICE_ACCOUNT_JSON``) win when present —
+    that is the only thing a Cloud Run Job can use. Otherwise we defer to
+    whatever ``ee`` finds itself (ADC, or a local ``earthengine authenticate``
+    token), so nothing changes for interactive use.
+    """
+    project = (os.environ.get("EE_PROJECT")
+               or os.environ.get("GOOGLE_CLOUD_PROJECT")
+               or None)
+    key = _service_account_key()
+    if key is None:
+        ee.Initialize(project=project) if project else ee.Initialize()
+        return
+    email = key.get("client_email")
+    if not email:
+        raise ValueError("EE service-account key has no 'client_email' field")
+    project = project or key.get("project_id")
+    credentials = ee.ServiceAccountCredentials(email, key_data=json.dumps(key))
+    ee.Initialize(credentials, project=project) if project else ee.Initialize(credentials)
 
 
 # --------------------------------------------------------------------------- #
@@ -128,7 +181,7 @@ def _sample_to_array(ee, img, band, aoi, h, w):
 # --------------------------------------------------------------------------- #
 def ingest_gee_cube(cfg: Config) -> DataCube:
     ee = _require_ee()
-    ee.Initialize()
+    initialize_ee(ee)
 
     minx, miny, maxx, maxy = cfg.pilot["aoi_bbox"]
     aoi = ee.Geometry.Rectangle([minx, miny, maxx, maxy])

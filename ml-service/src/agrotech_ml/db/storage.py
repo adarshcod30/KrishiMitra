@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 from uuid import uuid4
 
 from agrotech_ml.models.schemas import (
@@ -20,6 +19,11 @@ from agrotech_ml.models.schemas import (
     UserProfileCreate,
 )
 from agrotech_ml.core.settings import AppSettings
+from agrotech_ml.db.engine import DatabaseConnection
+from agrotech_ml.db.engine import connect as _engine_connect
+
+# Rows are mappings on both backends (``sqlite3.Row`` / psycopg ``dict_row``).
+Row = Mapping[str, Any]
 
 
 def _now_iso() -> str:
@@ -33,25 +37,26 @@ def _normalize_farmer_id(farmer_id: str | None) -> str | None:
 
 
 @contextmanager
-def connect(settings: AppSettings) -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(settings.database_path)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
-    try:
+def connect(settings: AppSettings) -> Iterator[DatabaseConnection]:
+    """Open a connection to whichever backend this deployment is configured for.
+
+    SQLite when ``AGROTECH_DATABASE_URL`` is unset, PostgreSQL when it is set.
+    """
+    with _engine_connect(settings) as connection:
         yield connection
-    finally:
-        connection.close()
 
 
-def _ensure_column(connection: sqlite3.Connection, table: str, definition: str) -> None:
-    column_name = definition.split()[0]
-    columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
-    if column_name not in columns:
-        connection.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
+def _ensure_column(connection: DatabaseConnection, table: str, definition: str) -> None:
+    connection.dialect.ensure_column(connection, table, definition)
 
 
-def _generate_farmer_id(connection: sqlite3.Connection) -> str:
+def _count(connection: DatabaseConnection, table: str) -> int:
+    """COUNT(*) with a named column, since rows are mappings, not tuples."""
+    row = connection.execute(f"SELECT COUNT(*) AS total FROM {table}").fetchone()
+    return int(row["total"]) if row is not None else 0
+
+
+def _generate_farmer_id(connection: DatabaseConnection) -> str:
     for _ in range(20):
         candidate = f"KMA-{uuid4().hex[:8].upper()}"
         exists = connection.execute(
@@ -68,92 +73,92 @@ def init_db(settings: AppSettings) -> None:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                farmer_id TEXT,
-                name TEXT NOT NULL,
-                mobile TEXT NOT NULL UNIQUE,
-                state TEXT,
-                district TEXT,
-                language TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id {TEXT} PRIMARY KEY,
+                farmer_id {TEXT},
+                name {TEXT} NOT NULL,
+                mobile {TEXT} NOT NULL UNIQUE,
+                state {TEXT},
+                district {TEXT},
+                language {TEXT} NOT NULL,
+                created_at {TEXT} NOT NULL,
+                updated_at {TEXT} NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS farms (
-                id TEXT PRIMARY KEY,
-                farmer_id TEXT,
-                mobile TEXT NOT NULL,
-                farm_name TEXT NOT NULL,
-                village TEXT NOT NULL,
-                district TEXT,
-                state TEXT NOT NULL,
-                acres REAL NOT NULL,
-                primary_crop TEXT NOT NULL,
-                soil_type TEXT,
-                irrigation_source TEXT,
-                latitude REAL,
-                longitude REAL,
-                created_at TEXT NOT NULL
+                id {TEXT} PRIMARY KEY,
+                farmer_id {TEXT},
+                mobile {TEXT} NOT NULL,
+                farm_name {TEXT} NOT NULL,
+                village {TEXT} NOT NULL,
+                district {TEXT},
+                state {TEXT} NOT NULL,
+                acres {REAL} NOT NULL,
+                primary_crop {TEXT} NOT NULL,
+                soil_type {TEXT},
+                irrigation_source {TEXT},
+                latitude {REAL},
+                longitude {REAL},
+                created_at {TEXT} NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS uploads (
-                id TEXT PRIMARY KEY,
-                farmer_id TEXT,
-                mobile TEXT NOT NULL,
-                module TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                stored_name TEXT NOT NULL,
-                content_type TEXT NOT NULL,
-                size_bytes INTEGER NOT NULL,
-                notes TEXT,
-                created_at TEXT NOT NULL
+                id {TEXT} PRIMARY KEY,
+                farmer_id {TEXT},
+                mobile {TEXT} NOT NULL,
+                module {TEXT} NOT NULL,
+                filename {TEXT} NOT NULL,
+                stored_name {TEXT} NOT NULL,
+                content_type {TEXT} NOT NULL,
+                size_bytes {INTEGER} NOT NULL,
+                notes {TEXT},
+                created_at {TEXT} NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS advisories (
-                id TEXT PRIMARY KEY,
-                farmer_id TEXT,
-                mobile TEXT NOT NULL,
-                module TEXT NOT NULL,
-                summary TEXT NOT NULL,
-                language TEXT NOT NULL,
-                request_payload TEXT NOT NULL,
-                response_payload TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                id {TEXT} PRIMARY KEY,
+                farmer_id {TEXT},
+                mobile {TEXT} NOT NULL,
+                module {TEXT} NOT NULL,
+                summary {TEXT} NOT NULL,
+                language {TEXT} NOT NULL,
+                request_payload {TEXT} NOT NULL,
+                response_payload {TEXT} NOT NULL,
+                created_at {TEXT} NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS translation_cache (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_text TEXT NOT NULL,
-                source_language TEXT NOT NULL,
-                target_language TEXT NOT NULL,
-                translated_text TEXT NOT NULL,
-                provider TEXT NOT NULL,
-                created_at TEXT NOT NULL,
+                id {SERIAL_PK},
+                source_text {TEXT} NOT NULL,
+                source_language {TEXT} NOT NULL,
+                target_language {TEXT} NOT NULL,
+                translated_text {TEXT} NOT NULL,
+                provider {TEXT} NOT NULL,
+                created_at {TEXT} NOT NULL,
                 UNIQUE(source_text, source_language, target_language, provider)
             );
 
             CREATE TABLE IF NOT EXISTS audit_logs (
-                id TEXT PRIMARY KEY,
-                request_id TEXT NOT NULL,
-                actor_type TEXT NOT NULL,
-                actor_id TEXT,
-                action TEXT NOT NULL,
-                path TEXT NOT NULL,
-                method TEXT NOT NULL,
-                status_code INTEGER NOT NULL,
-                ip_address TEXT,
-                user_agent TEXT,
-                message TEXT,
-                metadata TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                id {TEXT} PRIMARY KEY,
+                request_id {TEXT} NOT NULL,
+                actor_type {TEXT} NOT NULL,
+                actor_id {TEXT},
+                action {TEXT} NOT NULL,
+                path {TEXT} NOT NULL,
+                method {TEXT} NOT NULL,
+                status_code {INTEGER} NOT NULL,
+                ip_address {TEXT},
+                user_agent {TEXT},
+                message {TEXT},
+                metadata {TEXT} NOT NULL,
+                created_at {TEXT} NOT NULL
             );
             """
         )
 
-        _ensure_column(connection, "users", "farmer_id TEXT")
-        _ensure_column(connection, "farms", "farmer_id TEXT")
-        _ensure_column(connection, "uploads", "farmer_id TEXT")
-        _ensure_column(connection, "advisories", "farmer_id TEXT")
+        _ensure_column(connection, "users", "farmer_id {TEXT}")
+        _ensure_column(connection, "farms", "farmer_id {TEXT}")
+        _ensure_column(connection, "uploads", "farmer_id {TEXT}")
+        _ensure_column(connection, "advisories", "farmer_id {TEXT}")
 
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_farmer_id ON users (farmer_id)"
@@ -218,39 +223,39 @@ def init_db(settings: AppSettings) -> None:
         connection.commit()
 
 
-def _row_to_user(row: sqlite3.Row) -> UserProfile:
+def _row_to_user(row: Row) -> UserProfile:
     return UserProfile.model_validate(dict(row))
 
 
-def _row_to_farm(row: sqlite3.Row) -> FarmProfile:
+def _row_to_farm(row: Row) -> FarmProfile:
     return FarmProfile.model_validate(dict(row))
 
 
-def _row_to_upload(row: sqlite3.Row, settings: AppSettings) -> UploadAsset:
+def _row_to_upload(row: Row, settings: AppSettings) -> UploadAsset:
     payload = dict(row)
     payload["url"] = f"{settings.public_base_url}/static/uploads/{payload.pop('stored_name')}"
     return UploadAsset.model_validate(payload)
 
 
-def _row_to_advisory(row: sqlite3.Row) -> AdvisoryRecord:
+def _row_to_advisory(row: Row) -> AdvisoryRecord:
     payload = dict(row)
     payload["request_payload"] = json.loads(payload["request_payload"])
     payload["response_payload"] = json.loads(payload["response_payload"])
     return AdvisoryRecord.model_validate(payload)
 
 
-def _row_to_audit_log(row: sqlite3.Row) -> AuditLog:
+def _row_to_audit_log(row: Row) -> AuditLog:
     payload = dict(row)
     payload["metadata"] = json.loads(payload["metadata"])
     return AuditLog.model_validate(payload)
 
 
 def _get_user_row(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     mobile: str | None = None,
     farmer_id: str | None = None,
-) -> sqlite3.Row | None:
+) -> Row | None:
     if mobile:
         row = connection.execute(
             """
@@ -382,6 +387,7 @@ def add_farm(settings: AppSettings, farm: FarmProfileCreate) -> FarmProfile:
             raise ValueError("Farmer profile must exist before a farm can be saved")
 
         farmer_id = str(user["farmer_id"])
+        record_id = str(uuid4())
         connection.execute(
             """
             INSERT INTO farms (
@@ -391,7 +397,7 @@ def add_farm(settings: AppSettings, farm: FarmProfileCreate) -> FarmProfile:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(uuid4()),
+                record_id,
                 farmer_id,
                 farm.mobile,
                 farm.farm_name,
@@ -413,8 +419,9 @@ def add_farm(settings: AppSettings, farm: FarmProfileCreate) -> FarmProfile:
             SELECT id, farmer_id, mobile, farm_name, village, district, state, acres, primary_crop,
                    soil_type, irrigation_source, latitude, longitude, created_at
             FROM farms
-            WHERE rowid = last_insert_rowid()
-            """
+            WHERE id = ?
+            """,
+            (record_id,),
         ).fetchone()
         assert row is not None
         return _row_to_farm(row)
@@ -455,6 +462,7 @@ def save_upload(
 
         resolved_farmer_id = str(user["farmer_id"])
         resolved_mobile = str(user["mobile"])
+        record_id = str(uuid4())
         connection.execute(
             """
             INSERT INTO uploads (
@@ -463,7 +471,7 @@ def save_upload(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(uuid4()),
+                record_id,
                 resolved_farmer_id,
                 resolved_mobile,
                 module,
@@ -480,8 +488,9 @@ def save_upload(
             """
             SELECT id, farmer_id, mobile, module, filename, stored_name, content_type, size_bytes, notes, created_at
             FROM uploads
-            WHERE rowid = last_insert_rowid()
-            """
+            WHERE id = ?
+            """,
+            (record_id,),
         ).fetchone()
         assert row is not None
         return _row_to_upload(row, settings)
@@ -496,7 +505,7 @@ def list_uploads(
     query = """
         SELECT id, farmer_id, mobile, module, filename, stored_name, content_type, size_bytes, notes, created_at
         FROM uploads
-        WHERE mobile = ? OR farmer_id = ?
+        WHERE (mobile = ? OR farmer_id = ?)
     """
     params: list[Any] = [identifier, _normalize_farmer_id(identifier)]
     if module:
@@ -528,6 +537,7 @@ def save_advisory(
 
         resolved_farmer_id = str(user["farmer_id"])
         resolved_mobile = str(user["mobile"])
+        record_id = str(uuid4())
         connection.execute(
             """
             INSERT INTO advisories (
@@ -536,7 +546,7 @@ def save_advisory(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(uuid4()),
+                record_id,
                 resolved_farmer_id,
                 resolved_mobile,
                 module,
@@ -552,8 +562,9 @@ def save_advisory(
             """
             SELECT id, farmer_id, mobile, module, summary, language, request_payload, response_payload, created_at
             FROM advisories
-            WHERE rowid = last_insert_rowid()
-            """
+            WHERE id = ?
+            """,
+            (record_id,),
         ).fetchone()
         assert row is not None
         return _row_to_advisory(row)
@@ -569,7 +580,7 @@ def list_advisories(
     query = """
         SELECT id, farmer_id, mobile, module, summary, language, request_payload, response_payload, created_at
         FROM advisories
-        WHERE mobile = ? OR farmer_id = ?
+        WHERE (mobile = ? OR farmer_id = ?)
     """
     params: list[Any] = [identifier, _normalize_farmer_id(identifier)]
     if module:
@@ -705,6 +716,7 @@ def save_audit_log(
     metadata: dict[str, Any] | None = None,
 ) -> AuditLog:
     now = _now_iso()
+    record_id = str(uuid4())
     with connect(settings) as connection:
         connection.execute(
             """
@@ -715,7 +727,7 @@ def save_audit_log(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(uuid4()),
+                record_id,
                 request_id,
                 actor_type,
                 actor_id,
@@ -736,8 +748,9 @@ def save_audit_log(
             SELECT id, request_id, actor_type, actor_id, action, path, method, status_code,
                    ip_address, user_agent, message, metadata, created_at
             FROM audit_logs
-            WHERE rowid = last_insert_rowid()
-            """
+            WHERE id = ?
+            """,
+            (record_id,),
         ).fetchone()
         assert row is not None
         return _row_to_audit_log(row)
@@ -772,10 +785,10 @@ def dashboard_summary(
     audit_logging_enabled: bool = False,
 ) -> DashboardSummary:
     with connect(settings) as connection:
-        active_users = int(connection.execute("SELECT COUNT(*) FROM users").fetchone()[0])
-        total_farms = int(connection.execute("SELECT COUNT(*) FROM farms").fetchone()[0])
-        saved_assets = int(connection.execute("SELECT COUNT(*) FROM uploads").fetchone()[0])
-        advisory_runs = int(connection.execute("SELECT COUNT(*) FROM advisories").fetchone()[0])
+        active_users = _count(connection, "users")
+        total_farms = _count(connection, "farms")
+        saved_assets = _count(connection, "uploads")
+        advisory_runs = _count(connection, "advisories")
 
     return DashboardSummary(
         active_users=active_users,

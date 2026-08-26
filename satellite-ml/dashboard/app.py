@@ -60,7 +60,9 @@ st.caption("AI-driven analysis of optical + microwave (SAR) satellite data acros
 
 with st.sidebar:
     st.header("Pilot controls")
-    seed = st.number_input("Random seed", 0, 99999, 20250426, step=1)
+    # NOTE: max_value must stay above the default seed (a date-like 8-digit
+    # number) or Streamlit raises on the very first widget it renders.
+    seed = st.number_input("Random seed", 0, 99_999_999, 20250426, step=1)
     grid = st.select_slider("Grid size (px)", options=[80, 100, 120, 140], value=120)
     st.markdown("---")
     st.markdown("**Data source:** simulated optical+SAR\n\n"
@@ -75,9 +77,15 @@ dates = [d.isoformat() for d in res.cube.dates]
 # ---- headline metrics -----------------------------------------------------
 c = rep["classification"]
 adv = rep["advisory"]["latest_summary"]
+supervised = not c.get("skipped", False)
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Crop OA", f"{c['overall_accuracy']:.1%}", f"target 85% {'✓' if c['meets_target'] else '✗'}")
-m2.metric("Kappa", f"{c['kappa']:.2f}", c["best_model"])
+if supervised:
+    m1.metric("Crop OA", f"{c['overall_accuracy']:.1%}",
+              f"target 85% {'✓' if c['meets_target'] else '✗'}")
+    m2.metric("Kappa", f"{c['kappa']:.2f}", c["best_model"])
+else:
+    m1.metric("Crop OA", "n/a", "no ground-truth labels")
+    m2.metric("Cropland", f"{c.get('cropland_area_pct', 0):.0f}%", c["best_model"])
 m3.metric("Area to irrigate", f"{adv['area_needing_irrigation_ha']:.0f} ha", adv["date"])
 m4.metric("Gross demand", f"{adv['total_gross_volume_ML']:.0f} ML",
           f"{adv['pct_command_area_irrigate_now']:.0f}% irrigate-now")
@@ -95,8 +103,11 @@ with tab1:
     ax.set_title("Confidence", fontsize=11, fontweight="bold"); ax.set_xticks([]); ax.set_yticks([])
     fig.colorbar(im, fraction=0.046, pad=0.04); fig.tight_layout()
     col2.pyplot(fig)
-    st.subheader("Per-crop accuracy")
-    st.dataframe(c["per_class"])
+    if supervised:
+        st.subheader("Per-crop accuracy")
+        st.dataframe(c["per_class"])
+    else:
+        st.info(c["reason"])
 
 with tab2:
     t = st.slider("Composite", 0, res.cube.T - 1, res.cube.T // 2, format="%d",
@@ -130,6 +141,7 @@ with tab4:
     col1.subheader("Classification"); col1.json(rep["classification"])
     col2.subheader("Moisture stress"); col2.json(rep["moisture_stress"])
     st.subheader("Advisory credibility"); st.json(rep["advisory"])
-    st.subheader("Top discriminating features")
-    st.dataframe({"feature": [f for f, _ in res.crop.feature_importance[:15]],
-                  "importance": [round(v, 4) for _, v in res.crop.feature_importance[:15]]})
+    if res.crop.feature_importance:
+        st.subheader("Top discriminating features")
+        st.dataframe({"feature": [f for f, _ in res.crop.feature_importance[:15]],
+                      "importance": [round(v, 4) for _, v in res.crop.feature_importance[:15]]})

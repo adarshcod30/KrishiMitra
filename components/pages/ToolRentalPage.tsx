@@ -1,36 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { AsyncSection } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchRentalTools } from "@/lib/api";
-import type { RentalTool } from "@/lib/types";
+import { useAsyncResource } from "@/lib/hooks";
 
 export function ToolRentalPage() {
   const { t, language } = useLanguage();
-  const [tools, setTools] = useState<RentalTool[]>([]);
   const [location, setLocation] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  async function loadTools() {
-    setBusy(true);
-    try {
-      const result = await fetchRentalTools(language, {
-        location: location || undefined,
-      });
-      setTools(result);
-    } catch {
-      setTools([]);
-    } finally {
-      setBusy(false);
-    }
+  // Applied on demand (Search / Enter), not on every keystroke.
+  const submittedLocationRef = useRef("");
+
+  const loadTools = useCallback(
+    () => fetchRentalTools(language, { location: submittedLocationRef.current || undefined }),
+    [language]
+  );
+
+  const toolsResource = useAsyncResource(loadTools, t("feedback.loadFailed"));
+
+  function submitLocation() {
+    submittedLocationRef.current = location.trim();
+    toolsResource.reload();
   }
-
-  useEffect(() => {
-    loadTools();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
 
   return (
     <div className="page-container">
@@ -47,33 +42,48 @@ export function ToolRentalPage() {
             placeholder={t("rental.locationPlaceholder")}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                submitLocation();
+              }
+            }}
           />
-          <button type="button" className="primary-btn small-btn" onClick={loadTools}>
-            {busy ? t("common.loading") : t("common.search")}
+          <button
+            type="button"
+            className="primary-btn small-btn"
+            onClick={submitLocation}
+            disabled={toolsResource.isLoading}
+          >
+            {toolsResource.isLoading ? t("common.loading") : t("common.search")}
           </button>
         </div>
       </section>
 
       <section className="surface-card">
         <h3>🚜 {t("rental.availableTools")}</h3>
-        {tools.length > 0 ? (
-          <div className="feature-grid">
-            {tools.map((tool, i) => (
-              <div key={`${tool.name}-${i}`} className="tool-card">
-                <h4>{tool.name}</h4>
-                <div className="tool-rate">₹{tool.hourly_rate_inr}/hr</div>
-                <div className="tool-meta">
-                  📍 {tool.location} · {tool.provider}
+        <AsyncSection
+          resource={toolsResource}
+          icon="🚜"
+          emptyMessage={t("rental.empty")}
+          isEmpty={(items) => items.length === 0}
+        >
+          {(tools) => (
+            <div className="feature-grid">
+              {tools.map((tool, i) => (
+                <div key={`${tool.name}-${i}`} className="tool-card">
+                  <h4>{tool.name}</h4>
+                  <div className="tool-rate">₹{tool.hourly_rate_inr}/hr</div>
+                  <div className="tool-meta">
+                    📍 {tool.location} · {tool.provider}
+                  </div>
+                  <div className="tool-meta">
+                    {t("rental.availability")}: <span className="badge badge-success">{tool.availability}</span>
+                  </div>
                 </div>
-                <div className="tool-meta">
-                  {t("rental.availability")}: <span className="badge badge-success">{tool.availability}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="muted-copy">{busy ? t("common.loading") : t("rental.empty")}</p>
-        )}
+              ))}
+            </div>
+          )}
+        </AsyncSection>
       </section>
     </div>
   );

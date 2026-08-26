@@ -1,0 +1,398 @@
+# =============================================================================
+# KrishiMitra — Cloud Build pipeline
+#
+# Build both images, push them to Artifact Registry, migrate the database, then
+# deploy the API and the frontend to Cloud Run.
+#
+# Manual run:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --region=asia-south1 \
+#     --substitutions=_IMAGE_TAG=$(git rev-parse --short=12 HEAD)
+#
+# As a trigger (push to main):
+#   gcloud builds triggers create github \
+#     --name=krishimitra-main \
+#     --repo-owner=YOUR_ORG --repo-name=KrishiMitra \
+#     --branch-pattern='^main$' \
+#     --build-config=cloudbuild.yaml \
+#     --region=asia-south1 \
+#     --service-account=projects/$PROJECT_ID/serviceAccounts/krishimitra-build@$PROJECT_ID.iam.gserviceaccount.com \
+#     --substitutions=_IMAGE_TAG=\$SHORT_SHA
+#
+# Prerequisites: deploy/00-enable-apis.sh, 10-provision.sh and 20-secrets.sh
+# have been run. This file deploys; it does not provision.
+#
+# The equivalent step-by-step, human-supervised path is deploy/30-deploy.sh.
+# The two are kept behaviourally identical on purpose — if you change the env
+# wiring in one, change it in the other.
+# =============================================================================
+
+substitutions:
+  # --- Location and naming ---------------------------------------------------
+  _REGION: 'asia-south1'
+  _AR_REPO: 'krishimitra'
+  _API_SERVICE: 'krishimitra-api'
+  _WEB_SERVICE: 'krishimitra-web'
+  _MIGRATE_JOB: 'krishimitra-migrate'
+
+  # Image tag. Override with $SHORT_SHA in a trigger so every revision is
+  # traceable to a commit. 'latest' is only a safe default for manual runs.
+  _IMAGE_TAG: 'latest'
+
+  # --- Runtime identities (created by deploy/10-provision.sh) ----------------
+  _API_SA: 'krishimitra-api'
+  _WEB_SA: 'krishimitra-web'
+
+  # --- Data plane ------------------------------------------------------------
+  _SQL_INSTANCE: 'krishimitra-pg'
+  _MODELS_BUCKET: ''      # defaults below to ${PROJECT_ID}-krishimitra-models
+  _UPLOADS_BUCKET: ''     # defaults below to ${PROJECT_ID}-krishimitra-uploads
+
+  # --- Application config ----------------------------------------------------
+  _AGROTECH_ENVIRONMENT: 'production'
+  _AGROTECH_REQUIRE_WRITE_AUTH: 'true'
+  _AGROTECH_ADMIN_USERNAME: 'admin'
+  _EXTRA_CORS_ORIGINS: ''
+
+  # Baked into the client bundle at build time; cannot be changed afterwards by
+  # a Cloud Run env var. '/api/ml' keeps browser traffic same-origin through the
+  # Next.js server proxy.
+  _NEXT_PUBLIC_ML_API_URL: '/api/ml'
+
+  # 'false' keeps the API private (frontend-only access). 'true' exposes it.
+  _API_ALLOW_UNAUTHENTICATED: 'false'
+  _WEB_ALLOW_UNAUTHENTICATED: 'true'
+
+  # --- Sizing ----------------------------------------------------------------
+  _API_CPU: '2'
+  _API_MEMORY: '2Gi'
+  _API_MIN_INSTANCES: '0'
+  _API_MAX_INSTANCES: '5'
+  _API_CONCURRENCY: '20'
+  _API_TIMEOUT: '300'
+
+  _WEB_CPU: '1'
+  _WEB_MEMORY: '512Mi'
+  _WEB_MIN_INSTANCES: '0'
+  _WEB_MAX_INSTANCES: '5'
+  _WEB_CONCURRENCY: '80'
+  _WEB_TIMEOUT: '60'
+
+  # --- Behaviour switches ----------------------------------------------------
+  _RUN_MIGRATIONS: 'true'
+
+# Build identity. deploy/10-provision.sh creates this account with exactly
+# artifactregistry.writer + run.admin + iam.serviceAccountUser + logging.logWriter
+# and bucket-scoped access to the source-staging bucket.
+# Remove this line to fall back to the legacy default Cloud Build service
+# account; if you do, `options.logging` below may also be removed.
+serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/krishimitra-build@${PROJECT_ID}.iam.gserviceaccount.com'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  # Mandatory whenever `serviceAccount` is set: such a build has no default logs
+  # bucket, so it must log to Cloud Logging (or specify logsBucket explicitly).
+  logging: CLOUD_LOGGING_ONLY
+  # Lets substitution defaults reference $PROJECT_ID and each other.
+  dynamicSubstitutions: true
+  substitutionOption: 'ALLOW_LOOSE'
+
+timeout: '3600s'
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}:${_IMAGE_TAG}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_WEB_SERVICE}:${_IMAGE_TAG}'
+
+steps:
+  # ===========================================================================
+  # 1. Build — the two images are independent, so both start immediately.
+  # ===========================================================================
+  - id: 'build-api'
+    name: 'gcr.io/cloud-builders/docker'
+    waitFor: ['-']
+    args:
+      - 'build'
+      - '--file=Dockerfile.api'
+      - '--tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}:${_IMAGE_TAG}'
+      - '--tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}:latest'
+      # Layer cache from the previous build. --cache-from is best-effort: the
+      # first ever build has nothing to pull and docker simply proceeds.
+      - '--cache-from=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}:latest'
+      - '.'
+
+  - id: 'build-web'
+    name: 'gcr.io/cloud-builders/docker'
+    waitFor: ['-']
+    args:
+      - 'build'
+      - '--file=Dockerfile.web'
+      - '--build-arg=NEXT_PUBLIC_ML_API_URL=${_NEXT_PUBLIC_ML_API_URL}'
+      - '--tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_WEB_SERVICE}:${_IMAGE_TAG}'
+      - '--tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_WEB_SERVICE}:latest'
+      - '--cache-from=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_WEB_SERVICE}:latest'
+      - '.'
+
+  # ===========================================================================
+  # 2. Push — explicit, because the deploy steps below need the images in the
+  #    registry before they run. The top-level `images:` block only pushes
+  #    after every step has finished, which would be too late.
+  # ===========================================================================
+  - id: 'push-api'
+    name: 'gcr.io/cloud-builders/docker'
+    waitFor: ['build-api']
+    args: ['push', '--all-tags', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}']
+
+  - id: 'push-web'
+    name: 'gcr.io/cloud-builders/docker'
+    waitFor: ['build-web']
+    args: ['push', '--all-tags', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_WEB_SERVICE}']
+
+  # ===========================================================================
+  # 3. Migrate — a one-shot Cloud Run Job on the API image, so migrations run
+  #    with exactly the code, dependencies and Cloud SQL connectivity the
+  #    service will have. Must complete before any new revision serves traffic.
+  # ===========================================================================
+  - id: 'migrate'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    waitFor: ['push-api']
+    entrypoint: 'bash'
+    args:
+      - '-euo'
+      - 'pipefail'
+      - '-c'
+      - |
+        if [[ "${_RUN_MIGRATIONS}" != "true" ]]; then
+          echo "_RUN_MIGRATIONS=${_RUN_MIGRATIONS} — skipping database migrations"
+          exit 0
+        fi
+
+        IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}:${_IMAGE_TAG}"
+        SQL_CONN="${PROJECT_ID}:${_REGION}:${_SQL_INSTANCE}"
+
+        # Prefer Alembic when the image ships it; otherwise import the settings,
+        # whose get_settings() calls init_db() and creates/upgrades the schema.
+        # Both paths are idempotent.
+        read -r -d '' MIGRATE_CMD <<'SCRIPT' || true
+        set -e
+        cd /app
+        if [ -f /app/alembic.ini ] && command -v alembic >/dev/null 2>&1; then
+          echo "[migrate] alembic upgrade head"
+          alembic upgrade head
+        else
+          echo "[migrate] no alembic.ini; bootstrapping schema via init_db()"
+          python -c "from agrotech_ml.core.settings import get_settings; get_settings(); print('[migrate] schema ready')"
+        fi
+        echo "[migrate] done"
+        SCRIPT
+
+        # AGROTECH_ENVIRONMENT=development is deliberate: the migration serves
+        # no traffic and needs no JWT secret, and production mode makes
+        # get_settings() raise before it can reach init_db().
+        gcloud run jobs deploy "${_MIGRATE_JOB}" \
+          --project="${PROJECT_ID}" \
+          --image="$$IMAGE" \
+          --region="${_REGION}" \
+          --service-account="${_API_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
+          --set-cloudsql-instances="$$SQL_CONN" \
+          --set-secrets="AGROTECH_DATABASE_URL=agrotech-database-url:latest" \
+          --set-env-vars="^@^AGROTECH_ENVIRONMENT=development@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}" \
+          --command="/bin/sh" \
+          --args="^@^-c@$$MIGRATE_CMD" \
+          --max-retries=1 \
+          --task-timeout=600s \
+          --cpu=1 --memory=1Gi \
+          --quiet
+
+        echo "Executing ${_MIGRATE_JOB}..."
+        gcloud run jobs execute "${_MIGRATE_JOB}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --wait
+
+  # ===========================================================================
+  # 4. Deploy the API.
+  #
+  #    Written as a shell step rather than a plain gcloud step because the
+  #    optional third-party API keys must only be mapped when they actually
+  #    have a Secret Manager version — mapping a versionless secret makes the
+  #    revision fail to start with a Secret Manager 404, taking down a service
+  #    that would otherwise have degraded gracefully.
+  # ===========================================================================
+  - id: 'deploy-api'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    waitFor: ['migrate']
+    entrypoint: 'bash'
+    args:
+      - '-euo'
+      - 'pipefail'
+      - '-c'
+      - |
+        # Cloud Build substitutions do not support shell-style defaults
+        # (${_VAR:-fallback} is a syntax error in a build config), so the
+        # fallback is applied here in the shell instead.
+        MODELS_BUCKET="${_MODELS_BUCKET}"
+        UPLOADS_BUCKET="${_UPLOADS_BUCKET}"
+        [[ -n "$$MODELS_BUCKET"  ]] || MODELS_BUCKET="${PROJECT_ID}-krishimitra-models"
+        [[ -n "$$UPLOADS_BUCKET" ]] || UPLOADS_BUCKET="${PROJECT_ID}-krishimitra-uploads"
+
+        IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_SERVICE}:${_IMAGE_TAG}"
+        SQL_CONN="${PROJECT_ID}:${_REGION}:${_SQL_INSTANCE}"
+
+        has_version() {
+          gcloud secrets versions list "$$1" --project="${PROJECT_ID}" \
+            --filter='state:ENABLED' --limit=1 --format='value(name)' 2>/dev/null | grep -q .
+        }
+
+        for required in agrotech-database-url agrotech-jwt-secret; do
+          has_version "$$required" \
+            || { echo "ERROR: secret '$$required' has no enabled version. Run deploy/20-secrets.sh." >&2; exit 1; }
+        done
+
+        SECRETS="AGROTECH_DATABASE_URL=agrotech-database-url:latest"
+        SECRETS="$$SECRETS@AGROTECH_JWT_SECRET=agrotech-jwt-secret:latest"
+        has_version agrotech-admin-password-hash \
+          && SECRETS="$$SECRETS@AGROTECH_ADMIN_PASSWORD_HASH=agrotech-admin-password-hash:latest"
+        has_version agrotech-sarvam-api-key \
+          && SECRETS="$$SECRETS@AGROTECH_SARVAM_API_KEY=agrotech-sarvam-api-key:latest"
+        has_version agrotech-brave-search-api-key \
+          && SECRETS="$$SECRETS@AGROTECH_BRAVE_SEARCH_API_KEY=agrotech-brave-search-api-key:latest"
+        has_version agrotech-myscheme-api-key \
+          && SECRETS="$$SECRETS@AGROTECH_MYSCHEME_API_KEY=agrotech-myscheme-api-key:latest"
+
+        AUTH_FLAG="--no-allow-unauthenticated"
+        [[ "${_API_ALLOW_UNAUTHENTICATED}" == "true" ]] && AUTH_FLAG="--allow-unauthenticated"
+
+        # AGROTECH_PUBLIC_BASE_URL and AGROTECH_CORS_ORIGINS are set by the
+        # 'wire-urls' step below, once Cloud Run has assigned both hostnames.
+        ENV_VARS="AGROTECH_ENVIRONMENT=${_AGROTECH_ENVIRONMENT}"
+        ENV_VARS="$$ENV_VARS@AGROTECH_ARTIFACTS_DIR=/app/artifacts"
+        ENV_VARS="$$ENV_VARS@AGROTECH_UPLOADS_DIR=/app/uploads"
+        ENV_VARS="$$ENV_VARS@AGROTECH_MODELS_GCS_URI=gs://$$MODELS_BUCKET/artifacts"
+        ENV_VARS="$$ENV_VARS@AGROTECH_UPLOADS_GCS_BUCKET=$$UPLOADS_BUCKET"
+        ENV_VARS="$$ENV_VARS@AGROTECH_REQUIRE_WRITE_AUTH=${_AGROTECH_REQUIRE_WRITE_AUTH}"
+        ENV_VARS="$$ENV_VARS@AGROTECH_ADMIN_USERNAME=${_AGROTECH_ADMIN_USERNAME}"
+        ENV_VARS="$$ENV_VARS@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}"
+        ENV_VARS="$$ENV_VARS@WEB_CONCURRENCY=1"
+
+        gcloud run deploy "${_API_SERVICE}" \
+          --project="${PROJECT_ID}" \
+          --image="$$IMAGE" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --service-account="${_API_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
+          --add-cloudsql-instances="$$SQL_CONN" \
+          --port=8080 \
+          --cpu="${_API_CPU}" \
+          --memory="${_API_MEMORY}" \
+          --min-instances="${_API_MIN_INSTANCES}" \
+          --max-instances="${_API_MAX_INSTANCES}" \
+          --concurrency="${_API_CONCURRENCY}" \
+          --timeout="${_API_TIMEOUT}" \
+          --execution-environment=gen2 \
+          --cpu-boost \
+          --ingress=all \
+          --labels="app=krishimitra,component=api" \
+          --set-env-vars="^@^$$ENV_VARS" \
+          --set-secrets="^@^$$SECRETS" \
+          --startup-probe="httpGet.path=/health,httpGet.port=8080,initialDelaySeconds=10,periodSeconds=5,timeoutSeconds=5,failureThreshold=30" \
+          --liveness-probe="httpGet.path=/health,httpGet.port=8080,periodSeconds=30,timeoutSeconds=5,failureThreshold=3" \
+          "$$AUTH_FLAG" \
+          --quiet
+
+  # ===========================================================================
+  # 5. Deploy the frontend, pointed at the API's real URL.
+  # ===========================================================================
+  - id: 'deploy-web'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    waitFor: ['deploy-api', 'push-web']
+    entrypoint: 'bash'
+    args:
+      - '-euo'
+      - 'pipefail'
+      - '-c'
+      - |
+        IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_WEB_SERVICE}:${_IMAGE_TAG}"
+
+        API_URL=$$(gcloud run services describe "${_API_SERVICE}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" --format='value(status.url)')
+        [[ -n "$$API_URL" ]] || { echo "ERROR: could not read the API URL" >&2; exit 1; }
+        echo "API URL: $$API_URL"
+
+        AUTH_FLAG="--no-allow-unauthenticated"
+        [[ "${_WEB_ALLOW_UNAUTHENTICATED}" == "true" ]] && AUTH_FLAG="--allow-unauthenticated"
+
+        # ML_API_URL is server-side only — read by the /api/ml route handler,
+        # never shipped to the browser, changeable without a rebuild.
+        gcloud run deploy "${_WEB_SERVICE}" \
+          --project="${PROJECT_ID}" \
+          --image="$$IMAGE" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --service-account="${_WEB_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
+          --port=3000 \
+          --cpu="${_WEB_CPU}" \
+          --memory="${_WEB_MEMORY}" \
+          --min-instances="${_WEB_MIN_INSTANCES}" \
+          --max-instances="${_WEB_MAX_INSTANCES}" \
+          --concurrency="${_WEB_CONCURRENCY}" \
+          --timeout="${_WEB_TIMEOUT}" \
+          --execution-environment=gen2 \
+          --cpu-boost \
+          --ingress=all \
+          --labels="app=krishimitra,component=web" \
+          --set-env-vars="^@^ML_API_URL=$$API_URL@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@NODE_ENV=production" \
+          --startup-probe="httpGet.path=/api/health,httpGet.port=3000,initialDelaySeconds=2,periodSeconds=3,timeoutSeconds=3,failureThreshold=20" \
+          --liveness-probe="httpGet.path=/api/health,httpGet.port=3000,periodSeconds=30,timeoutSeconds=5,failureThreshold=3" \
+          "$$AUTH_FLAG" \
+          --quiet
+
+  # ===========================================================================
+  # 6. Cross-wire the real URLs and the service-to-service IAM binding.
+  #    Only possible after both services exist. A no-op on redeploys.
+  # ===========================================================================
+  - id: 'wire-urls'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    waitFor: ['deploy-web']
+    entrypoint: 'bash'
+    args:
+      - '-euo'
+      - 'pipefail'
+      - '-c'
+      - |
+        API_URL=$$(gcloud run services describe "${_API_SERVICE}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" --format='value(status.url)')
+        WEB_URL=$$(gcloud run services describe "${_WEB_SERVICE}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" --format='value(status.url)')
+
+        CORS="$$WEB_URL"
+        [[ -n "${_EXTRA_CORS_ORIGINS}" ]] && CORS="$$CORS,${_EXTRA_CORS_ORIGINS}"
+
+        echo "AGROTECH_PUBLIC_BASE_URL = $$API_URL"
+        echo "AGROTECH_CORS_ORIGINS    = $$CORS"
+
+        gcloud run services update "${_API_SERVICE}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" \
+          --update-env-vars="^@^AGROTECH_PUBLIC_BASE_URL=$$API_URL@AGROTECH_CORS_ORIGINS=$$CORS" \
+          --quiet
+
+        if [[ "${_API_ALLOW_UNAUTHENTICATED}" != "true" ]]; then
+          # Scoped to this one service: the frontend identity may invoke the API
+          # and nothing else in Cloud Run.
+          gcloud run services add-iam-policy-binding "${_API_SERVICE}" \
+            --project="${PROJECT_ID}" --region="${_REGION}" \
+            --member="serviceAccount:${_WEB_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --role="roles/run.invoker" --quiet
+        fi
+
+        if [[ "${_WEB_ALLOW_UNAUTHENTICATED}" == "true" ]]; then
+          gcloud run services add-iam-policy-binding "${_WEB_SERVICE}" \
+            --project="${PROJECT_ID}" --region="${_REGION}" \
+            --member="allUsers" --role="roles/run.invoker" --quiet
+        fi
+
+        echo
+        echo "=========================================="
+        echo "  Frontend  $$WEB_URL"
+        echo "  API       $$API_URL"
+        echo "  Tag       ${_IMAGE_TAG}"
+        echo "=========================================="

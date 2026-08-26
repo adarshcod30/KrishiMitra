@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { analyzeSoil } from "@/lib/api";
+import { toUserMessage } from "@/lib/errors";
 import type { SoilAnalysisResponse } from "@/lib/types";
 
 export function SoilHealthPage() {
@@ -22,9 +24,11 @@ export function SoilHealthPage() {
   });
   const [result, setResult] = useState<SoilAnalysisResponse | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleAnalyze() {
     setBusy(true);
+    setError(null);
     try {
       const response = await analyzeSoil({
         ...input,
@@ -33,6 +37,9 @@ export function SoilHealthPage() {
         mobile: activeFarmer?.mobile
       });
       setResult(response);
+    } catch (caught) {
+      // Without this the rejection is unhandled and the spinner just stops.
+      setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
@@ -103,7 +110,8 @@ export function SoilHealthPage() {
               />
             </label>
           </div>
-          <button type="button" className="primary-btn" onClick={handleAnalyze}>
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
+          <button type="button" className="primary-btn" onClick={handleAnalyze} disabled={busy}>
             {busy ? t("common.loading") : t("common.predict")}
           </button>
         </article>
@@ -118,7 +126,9 @@ export function SoilHealthPage() {
             )}
           </div>
 
-          {result ? (
+          {busy && !result ? (
+            <LoadingState icon="🧪" />
+          ) : result ? (
             <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
               <div className="recommendation-header">
                 <div className="crop-icon-wrapper">🧪</div>

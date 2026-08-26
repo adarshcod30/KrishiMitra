@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
-import { FarmerSearchPanel } from "@/components/farmers/FarmerSearchPanel";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const NAV_SECTIONS = [

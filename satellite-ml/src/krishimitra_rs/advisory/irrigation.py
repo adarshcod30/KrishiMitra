@@ -11,6 +11,9 @@ into four operational actions the command-area manager can act on:
 Each pixel also carries the recommended **gross irrigation depth** (mm), and the
 command area gets aggregate demand (area to irrigate, total water volume) — the
 numbers a canal roster is actually built from.
+
+Advice is muted on fallow ground and capped at "Monitor" inside the pre-harvest
+ripening window (see :func:`ripening_mask`).
 """
 from __future__ import annotations
 
@@ -21,6 +24,40 @@ import numpy as np
 from ..config import Config
 
 ADVISORY_NAMES = {0: "None", 1: "Monitor", 2: "Schedule", 3: "Irrigate now"}
+
+# Default width of the pre-harvest ripening window in which active irrigation
+# advice is muted (overridable via config.advisory).
+_RIPENING_DAYS = 15
+
+
+def ripening_mask(cube, crop_map: np.ndarray, cfg: Config, shape: tuple) -> np.ndarray:
+    """``(T, H, W)`` bool — pixels inside the final pre-harvest ripening window.
+
+    Irrigating a crop that is a fortnight from harvest wastes water (and can
+    lodge cereals), so active advice is capped at "Monitor" there.
+
+    The window is anchored on the **crop's agronomic harvest date** (the crop
+    map says *which* crop, the config says when that crop ripens), NOT on the
+    pixel's own observed NDVI peak. A water-stressed pixel senesces early, so a
+    peak-anchored rule declares exactly the driest fields "mature" and switches
+    the advisory off precisely where irrigation is most needed.
+    """
+    T, H, W = shape
+    days = int(cfg.advisory.get("stop_irrigation_days_before_harvest", _RIPENING_DAYS))
+    mask = np.zeros((T, H, W), dtype=bool)
+    for c in cfg.crops:
+        if int(c["code"]) == 0:
+            continue
+        harvest = cfg.resolve_doy(c.get("phenology", {}).get("eos_doy"))
+        if harvest is None:
+            continue
+        cm = crop_map == c["code"]
+        if not cm.any():
+            continue
+        for t, d in enumerate(cube.dates):
+            if (harvest - d).days <= days:
+                mask[t] |= cm
+    return mask
 
 
 @dataclass
@@ -48,10 +85,12 @@ def generate_advisory(cube, wb, stage: np.ndarray, crop_map: np.ndarray, cfg: Co
     # suppress trivially small recommended depths and fallow
     adv = np.where(wb.ir_net < min_mm, 0, adv)
     adv[:, crop_map == 0] = 0
-    # Phenology-aware: irrigating a senescing/maturing crop near harvest wastes
-    # water, so cap the advice at "Monitor" during maturity and mute it on
-    # bare/fallow ground. Active advice concentrates on vegetative + flowering.
-    adv = np.where(stage == 3, np.minimum(adv, 1), adv)
+    # Phenology-aware: cap the advice at "Monitor" in the pre-harvest ripening
+    # window (irrigating a crop days from harvest wastes water) and mute it on
+    # bare/fallow ground. Active advice concentrates on the vegetative,
+    # reproductive and grain-filling phases — including post-peak senescence,
+    # which is still highly irrigation-responsive in cereals.
+    adv = np.where(ripening_mask(cube, crop_map, cfg, adv.shape), np.minimum(adv, 1), adv)
     adv[stage < 0] = 0
 
     gross = np.where(adv >= 2, wb.ir_gross, 0.0).astype(np.float32)

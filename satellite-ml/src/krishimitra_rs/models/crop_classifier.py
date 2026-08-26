@@ -45,6 +45,51 @@ class ClassificationResult:
     ground_truth: GroundTruth | None = None
     classes_: np.ndarray | None = None      # ordered crop codes
     val_pred: np.ndarray | None = None      # predictions on val_idx (best model)
+    supervised: bool = True                 # False -> unsupervised cropland mask
+
+
+UNSUPERVISED_MODEL = "unsupervised_cropland_mask"
+
+
+def _reference_crop_code(cfg: Config) -> int:
+    """Largest-area non-fallow crop in the pilot (the sensible stand-in crop)."""
+    candidates = [c for c in cfg.crops if int(c["code"]) != 0]
+    if not candidates:
+        return 1
+    return int(max(candidates, key=lambda c: float(c.get("fraction", 0)))["code"])
+
+
+def unsupervised_crop_map(fs: FeatureStack, cfg: Config, min_amp: float = 0.12) -> ClassificationResult:
+    """Cropland / non-cropland mask for cubes that carry no ground-truth labels.
+
+    Supervised crop typing needs labels, and the GEE path has none until you
+    wire in a ground-truth ``FeatureCollection`` (or ``data.labels_path``).
+    The rest of the pipeline still needs *a* crop map, because the FAO-56
+    advisory reads root depth and depletion fraction per crop — so we fall back
+    to an unsupervised cropland split on seasonal NDVI amplitude and assign the
+    pilot's reference crop to every cropped pixel.
+
+    Everything downstream (indices, phenology, moisture stress, water balance,
+    advisory) is unsupervised and runs unchanged; only the crop *type* label
+    and its accuracy metrics are unavailable.
+    """
+    amp = np.asarray(fs.pheno["ndvi_amp"], dtype=np.float32)
+    code = int(cfg.data.get("default_crop_code", _reference_crop_code(cfg)))
+    crop_map = np.where(amp >= min_amp, code, 0).astype(np.int16)
+    scale = float(np.percentile(amp, 95))
+    confidence = np.clip(amp / max(scale, 1e-3), 0.0, 1.0).astype(np.float32)
+    return ClassificationResult(
+        crop_map=crop_map,
+        confidence=confidence,
+        metrics={},
+        best_model=UNSUPERVISED_MODEL,
+        models={},
+        feature_importance=[],
+        ground_truth=None,
+        classes_=np.array(sorted({0, code})),
+        val_pred=None,
+        supervised=False,
+    )
 
 
 # --------------------------------------------------------------------------- #

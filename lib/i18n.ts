@@ -214,6 +214,14 @@ const en = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 } as const;
 
 const hi: Record<keyof typeof en, string> = {
@@ -430,6 +438,14 @@ const hi: Record<keyof typeof en, string> = {
   "feedback.uploaded": "प्रमाण सफलतापूर्वक अपलोड हुआ।",
   "feedback.analysisReady": "विश्लेषण सफलतापूर्वक पूरा हुआ।",
   "feedback.searchFailed": "खोज असफल रही।",
+  "feedback.error": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",
+  "feedback.loadFailed": "यह डेटा लोड नहीं हो सका। कृपया पुनः प्रयास करें।",
+  "feedback.retry": "पुनः प्रयास करें",
+  "feedback.minSearchLength": "खोजने के लिए कम से कम 3 अक्षर दर्ज करें।",
+  "feedback.uploadFailed": "अपलोड विफल रहा। कृपया पुनः प्रयास करें।",
+  "feedback.saveFailed": "सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।",
+  "feedback.selectFarmerFirst": "प्रमाण अपलोड करने से पहले एक किसान चुनें।",
+  "feedback.selectFileFirst": "अपलोड करने से पहले एक छवि या पीडीएफ चुनें।",
 };
 
 const bn: Record<keyof typeof en, string> = {
@@ -646,6 +662,14 @@ const bn: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const te: Record<keyof typeof en, string> = {
@@ -862,6 +886,14 @@ const te: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const ta: Record<keyof typeof en, string> = {
@@ -1078,6 +1110,14 @@ const ta: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const mr: Record<keyof typeof en, string> = {
@@ -1294,6 +1334,14 @@ const mr: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const gu: Record<keyof typeof en, string> = {
@@ -1510,6 +1558,14 @@ const gu: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const kn: Record<keyof typeof en, string> = {
@@ -1726,6 +1782,14 @@ const kn: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const ml: Record<keyof typeof en, string> = {
@@ -1942,6 +2006,14 @@ const ml: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const pa: Record<keyof typeof en, string> = {
@@ -2158,6 +2230,14 @@ const pa: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 const or: Record<keyof typeof en, string> = {
@@ -2374,6 +2454,14 @@ const or: Record<keyof typeof en, string> = {
   "feedback.uploaded": "Evidence uploaded successfully.",
   "feedback.analysisReady": "Analysis completed successfully.",
   "feedback.searchFailed": "Search failed.",
+  "feedback.error": "Something went wrong. Please try again.",
+  "feedback.loadFailed": "Could not load this data. Please try again.",
+  "feedback.retry": "Try again",
+  "feedback.minSearchLength": "Enter at least 3 characters to search.",
+  "feedback.uploadFailed": "Upload failed. Please try again.",
+  "feedback.saveFailed": "Could not save. Please try again.",
+  "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
+  "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
 export const translations: Record<LanguageCode, Record<keyof typeof en, string>> = {

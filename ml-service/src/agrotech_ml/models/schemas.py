@@ -389,6 +389,26 @@ class AuthTokenResponse(BaseModel):
     username: str
 
 
+RetrainState = Literal["idle", "queued", "running", "succeeded", "failed"]
+
+
+class RetrainStatus(BaseModel):
+    """State of the background model-training job.
+
+    Training regenerates ~173 MB of artifacts and pegs a CPU for ~35 s, so it
+    never runs on the request path. ``POST /retrain`` queues it and returns
+    immediately; poll ``GET /retrain/status`` for progress.
+    """
+
+    status: RetrainState = "idle"
+    job_id: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    duration_seconds: float | None = None
+    detail: str | None = None
+    best_model: str | None = None
+
+
 class AuditLog(BaseModel):
     id: str
     request_id: str

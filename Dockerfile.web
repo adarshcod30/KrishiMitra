@@ -1,0 +1,112 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# KrishiMitra Next.js frontend  ->  Google Cloud Run
+#
+#   docker build -f Dockerfile.web -t krishimitra-web .
+#   docker run --rm -p 3000:3000 -e PORT=3000 -e ML_API_URL=http://host.docker.internal:8080 krishimitra-web
+#
+# Requires `output: "standalone"` in next.config.ts. The builder stage asserts
+# this explicitly rather than failing later with an opaque "no such file" on the
+# COPY, because the two failures look nothing alike in a Cloud Build log.
+#
+# Two ways the browser reaches the API, and they are not interchangeable:
+#   * NEXT_PUBLIC_ML_API_URL is a BUILD ARG. Next.js inlines NEXT_PUBLIC_* into
+#     the client bundle at build time, so it cannot be changed by a Cloud Run
+#     env var afterwards. It defaults to the same-origin proxy path "/api/ml",
+#     which keeps the API host out of the shipped JavaScript entirely.
+#   * ML_API_URL is a RUNTIME env var read only on the server, by the /api/ml
+#     route handler that proxies to Cloud Run. That is the one to point at the
+#     API service URL at deploy time.
+# =============================================================================
+
+ARG NODE_VERSION=22
+
+# ---------------------------------------------------------------------------
+# Stage 1 — deps: install node_modules from the lockfile only.
+# Cached until package.json / package-lock.json change.
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS deps
+
+# libc6-compat provides the glibc shims that some prebuilt native addons
+# (and Next's SWC binary on certain releases) expect on musl.
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+
+# `npm ci` is reproducible and fails loudly if the lockfile drifts from
+# package.json. Dev dependencies are required — the build runs TypeScript and
+# `typedRoutes: true` needs the compiler.
+RUN npm ci --include=dev
+
+# ---------------------------------------------------------------------------
+# Stage 2 — builder: compile the Next.js standalone server.
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS builder
+
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Baked into the client bundle. "/api/ml" = same-origin proxy (recommended):
+# no CORS, no API hostname leaked, and the API can stay private behind IAM.
+# Override with an absolute https:// URL only if you deliberately want the
+# browser to call Cloud Run directly (then AGROTECH_CORS_ORIGINS must list the
+# frontend origin).
+ARG NEXT_PUBLIC_ML_API_URL=/api/ml
+ENV NEXT_PUBLIC_ML_API_URL=${NEXT_PUBLIC_ML_API_URL}
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+RUN npm run build
+
+# Fail fast and legibly if standalone output was not produced.
+RUN test -d .next/standalone \
+ || ( echo "ERROR: .next/standalone is missing." >&2; \
+      echo "Set  output: 'standalone'  in next.config.ts — Cloud Run needs the" >&2; \
+      echo "self-contained server bundle, not a full node_modules tree." >&2; \
+      exit 1 )
+
+# ---------------------------------------------------------------------------
+# Stage 3 — runner: only the standalone bundle, static assets and public/.
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS runner
+
+RUN apk add --no-cache libc6-compat
+
+# node:alpine already ships a `node` user (uid 1000). Reusing it avoids an
+# extra layer and keeps file ownership consistent with the official image.
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Cloud Run injects PORT. HOSTNAME=0.0.0.0 is mandatory: the standalone
+# server.js binds HOSTNAME and defaults to localhost, which makes the container
+# look dead to Cloud Run's startup probe.
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# `next build` traces exactly the files the server needs into .next/standalone,
+# including a pruned node_modules. static/ and public/ are deliberately NOT
+# traced and must be copied alongside it.
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+
+USER node
+
+EXPOSE 3000
+
+# Hits the app's own /api/health route handler, so this exercises the Next.js
+# server rather than just TCP accept. Cloud Run ignores HEALTHCHECK and uses
+# the probes configured in deploy/30-deploy.sh.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+# Exec form: node is PID 1 and gets SIGTERM directly from Cloud Run.
+CMD ["node", "server.js"]

@@ -1,4 +1,9 @@
-import { ML_API_URL } from "@/lib/constants";
+import {
+  ML_API_URL,
+  MIN_FARMER_SEARCH_LENGTH,
+  MIN_LOCATION_SEARCH_LENGTH
+} from "@/lib/constants";
+import { ApiError, NETWORK_ERROR_STATUS, ValidationError, apiErrorFromResponse } from "@/lib/errors";
 import type {
   AdvisoryRecord,
   DashboardSummary,
@@ -34,19 +39,52 @@ import type {
   WeatherResponse
 } from "@/lib/types";
 
+/**
+ * `ML_API_URL` is relative (`/api/ml`) whenever `NEXT_PUBLIC_ML_API_URL` was not
+ * set at build time. A relative URL only resolves in the browser, so fail loudly
+ * rather than silently guessing an origin if a helper is ever called on the
+ * server. (Deliberately no localhost literal here — it would end up in the
+ * client bundle.)
+ */
+function resolveRequestUrl(path: string): string {
+  if (ML_API_URL.startsWith("/") && typeof window === "undefined") {
+    throw new ApiError(
+      NETWORK_ERROR_STATUS,
+      "The ML API client was called on the server without an absolute base URL. " +
+        "Set NEXT_PUBLIC_ML_API_URL at build time, or call this helper from the browser " +
+        "so the same-origin /api/ml proxy can be used."
+    );
+  }
+  return `${ML_API_URL}${path}`;
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${ML_API_URL}${path}`, {
-    ...init,
-    headers: {
-      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store"
-  });
+  const url = resolveRequestUrl(path);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(init?.headers ?? {})
+      },
+      cache: "no-store"
+    });
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      throw caught;
+    }
+    throw new ApiError(
+      NETWORK_ERROR_STATUS,
+      caught instanceof Error && caught.message
+        ? caught.message
+        : "The request could not be sent."
+    );
+  }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`${response.status} ${response.statusText}: ${message}`);
+    throw await apiErrorFromResponse(response);
   }
 
   return (await response.json()) as T;
@@ -119,7 +157,15 @@ export function fetchWeather(
 }
 
 export function searchLocations(query: string): Promise<LocationSearchItem[]> {
-  return requestJson(`/locations/search?q=${encodeURIComponent(query)}`);
+  const trimmed = query.trim();
+  if (trimmed.length < MIN_LOCATION_SEARCH_LENGTH) {
+    return Promise.reject(
+      new ValidationError(
+        `Enter at least ${MIN_LOCATION_SEARCH_LENGTH} characters to search for a location.`
+      )
+    );
+  }
+  return requestJson(`/locations/search?q=${encodeURIComponent(trimmed)}`);
 }
 
 export function fetchSchemes(
@@ -202,8 +248,20 @@ export function fetchUser(mobile: string): Promise<UserProfile> {
   return requestJson(`/profiles/user/${mobile}`);
 }
 
+/**
+ * The API rejects short queries with a 422, so the guard lives here as well as
+ * in the UI: no request is sent unless the query can possibly succeed.
+ */
 export function searchFarmers(query: string): Promise<FarmerSearchResult[]> {
-  return requestJson(`/profiles/search?q=${encodeURIComponent(query)}`);
+  const trimmed = query.trim();
+  if (trimmed.length < MIN_FARMER_SEARCH_LENGTH) {
+    return Promise.reject(
+      new ValidationError(
+        `Enter at least ${MIN_FARMER_SEARCH_LENGTH} characters to search for a farmer.`
+      )
+    );
+  }
+  return requestJson(`/profiles/search?q=${encodeURIComponent(trimmed)}`);
 }
 
 export function fetchFarmerWorkspace(farmerId: string): Promise<FarmerWorkspace> {

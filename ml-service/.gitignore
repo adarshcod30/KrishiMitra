@@ -1,0 +1,25 @@
+# Model artifacts and the local SQLite database live here at runtime.
+# Keep the directory itself, never its contents.
+artifacts/*
+!artifacts/.gitkeep
+
+# User uploads (contains farmer-submitted files / PII).
+uploads/*
+!uploads/.gitkeep
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Training scratch output
+catboost_info/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/

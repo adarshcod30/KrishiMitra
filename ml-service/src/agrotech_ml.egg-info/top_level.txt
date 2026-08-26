@@ -1,3 +1,1 @@
 agrotech_ml
-artifacts
-uploads

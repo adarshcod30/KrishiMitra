@@ -18,10 +18,17 @@ outputs/tables/*.json
 service-account*.json
 .ee/
 
+# Earth Engine service-account key materialised from EE_SERVICE_ACCOUNT_JSON.
+ee-key.json
+
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
+build/
+dist/
 .venv/
+venv/
 .ipynb_checkpoints/
 .pytest_cache/
+.ruff_cache/

@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { diagnoseDisease, uploadAsset } from "@/lib/api";
+import { toUserMessage } from "@/lib/errors";
 import type { DiseaseResponse, UploadAsset } from "@/lib/types";
 
 export function PestDetectionPage() {
@@ -19,13 +21,20 @@ export function PestDetectionPage() {
   const [result, setResult] = useState<DiseaseResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleUpload() {
-    if (!file || !activeFarmer) {
+    if (!activeFarmer) {
+      setError(t("feedback.selectFarmerFirst"));
+      return;
+    }
+    if (!file) {
+      setError(t("feedback.selectFileFirst"));
       return;
     }
 
     setUploading(true);
+    setError(null);
     try {
       const response = await uploadAsset({
         farmer_id: activeFarmer.farmer_id,
@@ -34,6 +43,9 @@ export function PestDetectionPage() {
         file
       });
       setAsset(response.asset);
+    } catch (caught) {
+      // Without this the rejection is unhandled and the spinner just stops.
+      setError(toUserMessage(caught, t("feedback.uploadFailed")));
     } finally {
       setUploading(false);
     }
@@ -41,6 +53,7 @@ export function PestDetectionPage() {
 
   async function handleAnalyze() {
     setBusy(true);
+    setError(null);
     try {
       const response = await diagnoseDisease({
         crop,
@@ -51,6 +64,9 @@ export function PestDetectionPage() {
         language
       });
       setResult(response);
+    } catch (caught) {
+      // Without this the rejection is unhandled and the spinner just stops.
+      setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
@@ -90,11 +106,12 @@ export function PestDetectionPage() {
               />
             </label>
           </div>
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
           <div className="action-row">
-            <button type="button" className="ghost-btn" onClick={handleUpload}>
+            <button type="button" className="ghost-btn" onClick={handleUpload} disabled={uploading}>
               {uploading ? t("common.loading") : t("common.upload")}
             </button>
-            <button type="button" className="primary-btn" onClick={handleAnalyze}>
+            <button type="button" className="primary-btn" onClick={handleAnalyze} disabled={busy}>
               {busy ? t("common.loading") : t("common.predict")}
             </button>
           </div>
@@ -111,7 +128,9 @@ export function PestDetectionPage() {
             )}
           </div>
 
-          {result ? (
+          {busy && !result ? (
+            <LoadingState icon="🐛" />
+          ) : result ? (
             <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
               <div className="recommendation-header">
                 <div className="crop-icon-wrapper">🐛</div>

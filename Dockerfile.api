@@ -1,0 +1,135 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# KrishiMitra / AgroTech ML API  ->  Google Cloud Run
+#
+#   docker build -f Dockerfile.api -t krishimitra-api .
+#   docker run --rm -p 8080:8080 krishimitra-api          # local smoke test
+#
+# Build context is the REPOSITORY ROOT (not ml-service/) so that .dockerignore
+# is shared with the other images and Cloud Build uploads one source tarball.
+#
+# Design notes
+#   * Two stages. The builder carries a C toolchain (some scientific wheels
+#     still fall back to sdists on new CPython); the runtime carries only
+#     libgomp1, which LightGBM / XGBoost dlopen at import time.
+#   * Dependencies are resolved into a self-contained venv at /opt/venv, which
+#     is copied wholesale into the runtime stage. No pip in the final image.
+#   * Nothing secret is baked in. Every credential arrives at runtime from
+#     Secret Manager (see deploy/20-secrets.sh).
+#   * Model artifacts are NOT required at build time. In production they are
+#     pulled from AGROTECH_MODELS_GCS_URI on startup; deploy/models/ is an
+#     offline fallback for air-gapped or demo builds.
+# =============================================================================
+
+ARG PYTHON_VERSION=3.13
+
+# ---------------------------------------------------------------------------
+# Stage 1 — builder: resolve and compile the Python dependency tree.
+# ---------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# build-essential: fallback compiler for any dependency without a cp313 wheel.
+# This whole stage is discarded, so none of it reaches the shipped image.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
+
+WORKDIR /build
+
+# Extras installed alongside the base package. `cloud` pulls the Cloud SQL /
+# Cloud Storage drivers (psycopg, SQLAlchemy, google-cloud-storage) declared in
+# ml-service/pyproject.toml. pip only WARNS on an unknown extra, so this stays
+# buildable while that extra is still landing.
+ARG PIP_EXTRAS=cloud
+
+# Metadata first: this layer is cached until pyproject.toml actually changes,
+# so editing ml-service/src does not re-resolve the whole ML dependency tree.
+COPY ml-service/pyproject.toml ml-service/README.md ./
+COPY ml-service/src ./src
+
+RUN python -m pip install --upgrade pip setuptools wheel \
+ && pip install ".[${PIP_EXTRAS}]" \
+ && python -c "import agrotech_ml, fastapi, uvicorn; print('builder import OK')"
+
+# ---------------------------------------------------------------------------
+# Stage 2 — runtime: slim, non-root, no toolchain, no package manager state.
+# ---------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+# libgomp1 is the OpenMP runtime that LightGBM and XGBoost load dynamically.
+# Without it `import lightgbm` fails with "libgomp.so.1: cannot open shared
+# object file" — a classic slim-image production break.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Non-root. Cloud Run does not require it, but it is defence in depth and makes
+# the image reusable on GKE/Autopilot, which rejects root containers.
+RUN groupadd --system --gid 10001 app \
+ && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app app
+
+COPY --from=builder --chown=root:root /opt/venv /opt/venv
+
+WORKDIR /app
+
+# Runtime data the service actually reads:
+#   data/    — Crop_dataset.csv, used by /retrain and first-run training
+#   scripts/ — bootstrap_datasets.py, run by operators via `docker exec`
+COPY --chown=app:app ml-service/data ./data
+COPY --chown=app:app ml-service/scripts ./scripts
+
+# Optional offline model bake. deploy/models/ ships with only a .gitkeep, so
+# this is a no-op unless an operator drops .joblib/.json artifacts in there.
+# The production path is AGROTECH_MODELS_GCS_URI (downloaded at startup), which
+# keeps ~170 MB of model weights out of every image pull.
+COPY --chown=app:app deploy/models/ ./artifacts/
+
+# Writable state directories. On Cloud Run these live in the per-instance
+# in-memory overlay and are wiped between instances, which is exactly why
+# AGROTECH_UPLOADS_GCS_BUCKET and AGROTECH_DATABASE_URL exist for production.
+RUN mkdir -p /app/artifacts /app/uploads && chown -R app:app /app
+
+ENV PATH="/opt/venv/bin:${PATH}"
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Cloud Run injects PORT; 8080 is the documented default and keeps
+# `docker run -p 8080:8080` working with no extra flags.
+ENV PORT=8080
+
+# Real directories inside the image, created below. The contract requires
+# AGROTECH_ARTIFACTS_DIR to be a real directory, never a symlink out of tree.
+ENV AGROTECH_ARTIFACTS_DIR=/app/artifacts
+ENV AGROTECH_UPLOADS_DIR=/app/uploads
+ENV AGROTECH_DATA_PATH=/app/data/Crop_dataset.csv
+
+# Deliberately NOT set here: AGROTECH_ENVIRONMENT, AGROTECH_DATABASE_URL,
+# AGROTECH_JWT_SECRET, AGROTECH_CORS_ORIGINS, AGROTECH_*_API_KEY.
+# Baking `production` in would make the image unrunnable without secrets and
+# break local smoke tests; deploy/30-deploy.sh supplies them per environment.
+
+USER app
+
+EXPOSE 8080
+
+# Container-level health probe for docker-compose. Cloud Run ignores
+# HEALTHCHECK and uses its own startup/liveness probes instead (wired up in
+# deploy/30-deploy.sh), so this is expressed with the interpreter already in the
+# image rather than by adding curl and its transitive libs.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+  CMD ["python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ.get('PORT','8080'), timeout=4)"]
+
+# `exec` so uvicorn becomes PID 1 and receives Cloud Run's SIGTERM directly,
+# giving it the full pre-stop window to drain in-flight requests.
+# --proxy-headers / --forwarded-allow-ips: Cloud Run terminates TLS upstream and
+# forwards X-Forwarded-Proto; without these, generated URLs come out as http://.
+# WEB_CONCURRENCY defaults to 1 because Cloud Run scales out by adding
+# instances, and each ensemble is re-loaded per worker at ~200 MB of RAM.
+CMD ["sh", "-c", "exec uvicorn agrotech_ml.api:app --host 0.0.0.0 --port \"${PORT:-8080}\" --workers \"${WEB_CONCURRENCY:-1}\" --timeout-keep-alive 65 --proxy-headers --forwarded-allow-ips '*'"]

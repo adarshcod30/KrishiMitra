@@ -1,0 +1,192 @@
+# =============================================================================
+# Local production parity for KrishiMitra.
+#
+#   docker compose up --build            # postgres + api + web
+#   docker compose --profile satellite run --rm satellite
+#   docker compose down                  # stop, keep data
+#   docker compose down -v               # stop AND DELETE the local database
+#
+#   Frontend  http://localhost:3000
+#   API       http://localhost:8080/health
+#   Postgres  localhost:5432  (agrotech / agrotech_local_dev_only)
+#
+# This runs the SAME topology and the SAME images as Cloud Run:
+#
+#   Cloud Run                     docker compose
+#   ------------------------      --------------------------------------
+#   Cloud SQL (Postgres 17)  ->   postgres:17-alpine service
+#   Cloud Run api service    ->   api service, Dockerfile.api, $PORT=8080
+#   Cloud Run web service    ->   web service, Dockerfile.web, $PORT=3000
+#   Secret Manager           ->   plain env vars (LOCAL DEV ONLY)
+#   GCS models bucket        ->   named volume api-artifacts
+#   GCS uploads bucket       ->   named volume api-uploads
+#
+# The one difference that matters: secrets are plain text here. The values below
+# are deliberately obvious throwaways. Never reuse them anywhere real.
+#
+# Note the deliberate omission of AGROTECH_MODELS_GCS_URI and
+# AGROTECH_UPLOADS_GCS_BUCKET — leaving them unset is what exercises the local
+# filesystem code path, which is half the point of the dual-mode contract. Set
+# them (plus GOOGLE_APPLICATION_CREDENTIALS) if you want to test the GCS path.
+# =============================================================================
+
+name: krishimitra
+
+services:
+  # ---------------------------------------------------------------------------
+  # Postgres — stands in for Cloud SQL. Same major version, so schema and SQL
+  # behaviour match what production will do.
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agrotech}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agrotech_local_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-agrotech}
+      # Deterministic collation, matching Cloud SQL's default.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      # Exposed so you can psql into it. Bound to loopback only — never 0.0.0.0.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The api service waits on this, so it never races a database that has
+      # accepted a TCP connection but has not finished initdb.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agrotech} -d ${POSTGRES_DB:-agrotech}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # FastAPI ML service — the exact image Cloud Run runs.
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Cloud Run injects PORT; compose sets it explicitly for the same reason.
+      PORT: "8080"
+
+      # Locally this is a TCP URL. On Cloud Run the same variable holds a
+      # Unix-socket URL (…@/db?host=/cloudsql/PROJECT:REGION:INSTANCE). The
+      # application code must not care which — that is the contract.
+      AGROTECH_DATABASE_URL: "postgresql://${POSTGRES_USER:-agrotech}:${POSTGRES_PASSWORD:-agrotech_local_dev_only}@db:5432/${POSTGRES_DB:-agrotech}"
+
+      AGROTECH_ENVIRONMENT: "development"
+      AGROTECH_ARTIFACTS_DIR: "/app/artifacts"
+      AGROTECH_UPLOADS_DIR: "/app/uploads"
+      AGROTECH_PUBLIC_BASE_URL: "http://localhost:8080"
+      AGROTECH_CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+
+      # Write auth off by default locally. Flip both to exercise the production
+      # auth path (and set AGROTECH_ADMIN_PASSWORD_HASH to a real hash).
+      AGROTECH_REQUIRE_WRITE_AUTH: "false"
+      AGROTECH_JWT_SECRET: "local-development-only-not-a-real-secret"
+      AGROTECH_ADMIN_USERNAME: "admin"
+
+      WEB_CONCURRENCY: "1"
+
+      # Third-party keys. Left empty so the dependent features degrade the same
+      # way they would in production with an unset secret.
+      AGROTECH_SARVAM_API_KEY: "${AGROTECH_SARVAM_API_KEY:-}"
+      AGROTECH_BRAVE_SEARCH_API_KEY: "${AGROTECH_BRAVE_SEARCH_API_KEY:-}"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Named volumes, not bind mounts: ml-service/artifacts is a developer's
+      # working directory (a symlink to /tmp on some checkouts), and bind-mounting
+      # it would drag host paths and permissions into the container.
+      #
+      # To use models you already trained on the host:
+      #   docker compose cp /tmp/agrotech_artifacts/crop_model.joblib api:/app/artifacts/
+      - api-artifacts:/app/artifacts
+      - api-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Generous: first boot may train models from data/Crop_dataset.csv.
+      start_period: 180s
+
+  # ---------------------------------------------------------------------------
+  # Next.js frontend — same standalone image Cloud Run runs.
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        # Build-time, inlined into the client bundle. "/api/ml" routes browser
+        # calls through the Next.js server proxy, exactly as in production.
+        NEXT_PUBLIC_ML_API_URL: "${NEXT_PUBLIC_ML_API_URL:-/api/ml}"
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: "production"
+      # Server-side only, read by the /api/ml route handler. On the compose
+      # network the API is reachable by service name; in production this is the
+      # API's Cloud Run URL.
+      ML_API_URL: "http://api:8080"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Satellite batch pipeline — the Cloud Run Job, locally.
+  #
+  # Behind a profile because it is a run-to-completion batch, not a server:
+  # `docker compose up` should not start it. Run it explicitly:
+  #
+  #   docker compose --profile satellite run --rm satellite
+  #   docker compose --profile satellite run --rm satellite --source gee
+  #
+  # Built from satellite-ml/Dockerfile — the image the satellite-ml module owns
+  # and the one deploy/40-satellite-job.sh ships to Cloud Run. In production the
+  # outputs volume is a Cloud Storage bucket mounted at the same path.
+  # ---------------------------------------------------------------------------
+  satellite:
+    profiles: ["satellite"]
+    build:
+      context: ./satellite-ml
+      dockerfile: Dockerfile
+      args:
+        # gee = earthengine-api + geopandas. Add ",geo" for GeoTIFF output
+        # locally; in production that conflicts with the gcsfuse mount.
+        EXTRAS: "${SATELLITE_EXTRAS:-gee}"
+    environment:
+      MPLBACKEND: "Agg"
+      # Earth Engine, only needed for --source gee. The application accepts
+      # either raw JSON or a path to a mounted key file; leave both unset and it
+      # falls back to ADC (see the commented volume below).
+      EE_PROJECT: "${EE_PROJECT:-}"
+      EE_SERVICE_ACCOUNT_JSON: "${EE_SERVICE_ACCOUNT_JSON:-}"
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-}"
+    volumes:
+      - satellite-outputs:/app/outputs
+      # Uncomment to reuse your host's `gcloud auth application-default login`
+      # credentials for Earth Engine:
+      # - ${HOME}/.config/gcloud:/home/app/.config/gcloud:ro
+
+volumes:
+  pgdata:
+  api-artifacts:
+  api-uploads:
+  satellite-outputs:

@@ -5,9 +5,8 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState
+  useSyncExternalStore
 } from "react";
 
 import { SUPPORTED_LANGUAGES } from "@/lib/constants";
@@ -23,20 +22,66 @@ interface LanguageContextValue {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 const STORAGE_KEY = "agrotech.language";
+const DEFAULT_LANGUAGE: LanguageCode = "en";
+
+/**
+ * localStorage is an external store, so it is read through
+ * `useSyncExternalStore` rather than copied into state from an effect.
+ *
+ * `getServerSnapshot` returns the default, which is also what React uses for
+ * the client's hydration render — so the markup matches the server exactly and
+ * the stored language is applied in the commit right after hydration. That is
+ * what makes the old `mounted` flags unnecessary.
+ */
+const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function isSupported(value: string | null): value is LanguageCode {
+  return Boolean(value) && SUPPORTED_LANGUAGES.some((item) => item.code === value);
+}
+
+/** Used only when localStorage is unavailable (private mode, blocked cookies). */
+let memoryLanguage: LanguageCode | null = null;
+
+function getSnapshot(): LanguageCode {
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (isSupported(stored)) {
+      return stored;
+    }
+  } catch {
+    // Fall through to the in-memory value.
+  }
+  return memoryLanguage ?? DEFAULT_LANGUAGE;
+}
+
+function getServerSnapshot(): LanguageCode {
+  return DEFAULT_LANGUAGE;
+}
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<LanguageCode>("en");
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
-    if (stored && SUPPORTED_LANGUAGES.some((item) => item.code === stored)) {
-      setLanguageState(stored);
-    }
-  }, []);
+  const language = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const setLanguage = useCallback((nextLanguage: LanguageCode) => {
-    setLanguageState(nextLanguage);
-    window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+    memoryLanguage = nextLanguage;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+    } catch {
+      // Persistence failed; the in-memory value above still drives this tab.
+    }
+    emit();
   }, []);
 
   const t = useCallback(

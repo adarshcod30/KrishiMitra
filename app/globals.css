@@ -1346,3 +1346,121 @@ button:active {
   padding: 0.2rem 0.6rem;
   border-radius: 99px;
 }
+
+/* ===== ASYNC STATES (loading / empty / error) ===== */
+.muted-copy {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.state-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--line, rgba(15, 23, 42, 0.12));
+}
+
+.state-panel .state-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.state-panel .state-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.state-panel .state-message {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--ink-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.state-panel-loading .state-icon {
+  animation: state-pulse 1.4s ease-in-out infinite;
+}
+
+.state-panel-empty .state-icon {
+  opacity: 0.45;
+}
+
+.state-panel-error {
+  background: var(--danger-subtle);
+  border-color: var(--danger);
+}
+
+.state-panel-error .state-title {
+  color: var(--danger);
+}
+
+.empty-state-illust,
+.empty-state-airy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: var(--muted);
+}
+
+.empty-state-illust .illust-icon {
+  font-size: 2.4rem;
+  opacity: 0.45;
+  line-height: 1;
+}
+
+.inline-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.inline-error-icon {
+  flex: none;
+}
+
+.inline-error-text {
+  flex: 1 1 auto;
+}
+
+.inline-error-dismiss {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.1rem 0.25rem;
+}
+
+.hint-text {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@keyframes state-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.94); }
+}

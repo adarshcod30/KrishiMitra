@@ -7,7 +7,7 @@ name = "agrotech-ml"
 version = "0.1.0"
 description = "ML-heavy crop recommendation service with FastAPI"
 readme = "README.md"
-requires-python = ">=3.13,<3.15"
+requires-python = ">=3.13"
 dependencies = [
   "fastapi==0.135.1",
   "uvicorn[standard]==0.41.0",
@@ -25,8 +25,16 @@ dependencies = [
   "httpx==0.28.1"
 ]
 
+[project.optional-dependencies]
+# Only needed when running against Cloud SQL / Cloud Storage. Local development
+# (SQLite + local directories) works without installing these.
+cloud = [
+  "psycopg[binary]>=3.2,<4",
+  "google-cloud-storage>=2.18,<4"
+]
+
 [project.scripts]
-agrotech-train = "agrotech_ml.train:main"
+agrotech-train = "agrotech_ml.services.train:main"
 agrotech-api = "agrotech_ml.api:main"
 
 [tool.setuptools.packages.find]

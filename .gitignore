@@ -22,6 +22,28 @@ ml-service/artifacts/*.json
 !ml-service/artifacts/.gitkeep
 ml-service/catboost_info/
 
+# Runtime state: the SQLite DB holds farmer PII and uploads are user-submitted.
+# Neither belongs in version control.
+ml-service/artifacts/*.db
+ml-service/artifacts/*.db-wal
+ml-service/artifacts/*.db-shm
+ml-service/uploads/*
+!ml-service/uploads/.gitkeep
+
+# --- Deployment secrets (GCP) --------------------------------------------
+# deploy/env and tfvars carry project ids, DB passwords and SA material;
+# tfstate can contain plaintext secrets. Never commit these.
+deploy/env
+deploy/env.*
+!deploy/env.example
+deploy/**/terraform.tfvars
+deploy/**/*.auto.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+*-service-account*.json
+*-sa-key*.json
+
 # Build caches
 tsconfig.tsbuildinfo
 

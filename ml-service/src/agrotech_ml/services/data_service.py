@@ -1,21 +1,27 @@
 from __future__ import annotations
 
+import asyncio
 import csv
 import html
 import json
 import io
+import logging
 import re
-from collections import defaultdict
+import threading
+import time
 from datetime import date, datetime
 from email.utils import parsedate_to_datetime
-from urllib.parse import quote, urlencode
+from pathlib import Path
+from typing import Callable, TypeVar
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from xml.etree import ElementTree
 
 import httpx
 
-from agrotech_ml.core.i18n import localize_crop_name, tr
+from agrotech_ml.core.i18n import LANGUAGE_LABELS, localize_crop_name, tr
 from agrotech_ml.models.schemas import (
     DashboardSummary,
+    FarmerSearchResult,
     InvestorOpportunity,
     KnowledgeArticle,
     LanguageCode,
@@ -39,10 +45,46 @@ from agrotech_ml.db.storage import (
     list_advisories,
     list_farms,
     list_uploads,
+    search_users as storage_search_users,
     upsert_user,
 )
+from agrotech_ml.services.fallback_catalog import FALLBACK_AVAILABILITY, RENTAL_TOOL_CATALOG
 from agrotech_ml.services.translation_service import is_translation_enabled, translate_text
 
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+# The dashboard fans out to several third-party services. Each probe gets a
+# short leash of its own so the aggregate stays well under a few seconds even
+# when every upstream is down.
+DASHBOARD_PROBE_TIMEOUT_SECONDS = 2.5
+
+# api.data.gov.in silently black-holes requests that do not look like a browser
+# (the connection is accepted and then never answered), which is what turned
+# GET /market/prices into a guaranteed read-timeout -> HTTP 500.
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/136.0.0.0 Safari/537.36"
+)
+
+MARKET_SAMPLE_PATH = Path(__file__).resolve().parents[3] / "data" / "market_prices_sample.csv"
+MARKET_ROW_LIMIT = 2000
+
+# Mandi prices are published once a day, so re-fetching 100 KB of CSV on every
+# request only buys latency and upstream throttling.
+MARKET_CACHE_TTL_SECONDS = 300
+_market_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_market_cache_lock = threading.Lock()
+
+# The eNAM logistics page is a slow scrape whose table no longer exists. Give it
+# a short leash and remember the outcome (including "no rows") so a dead
+# upstream costs one bounded request rather than one per caller.
+RENTAL_SCRAPE_TIMEOUT_SECONDS = 5.0
+RENTAL_CACHE_TTL_SECONDS = 600
+_rental_cache: dict[str, tuple[float, str | None]] = {}
+_rental_cache_lock = threading.Lock()
 
 TAG_RE = re.compile(r"<[^>]+>")
 DATA_GOV_URL_RE = re.compile(r'field_datafile_url:"([^"]+)"')
@@ -100,13 +142,20 @@ def _translate_value(settings: AppSettings, value: str, language: LanguageCode) 
     return translate_text(settings, value, language)
 
 
-def _official_browser_headers(referer: str) -> dict[str, str]:
-    return {
+def _official_browser_headers(referer: str, api_key: str | None = None) -> dict[str, str]:
+    """Browser-like headers for the public MyScheme endpoints.
+
+    The API key is supplied from settings (AGROTECH_MYSCHEME_API_KEY) and is
+    omitted entirely when unset, so no credential is ever embedded in source.
+    """
+    headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
         "Origin": "https://www.myscheme.gov.in",
         "Referer": referer,
-        "x-api-key": "tYTy5eEhlu9rFjyxuCr7ra7ACp4dv1RH8gWuHTDc",
     }
+    if api_key:
+        headers["x-api-key"] = api_key
+    return headers
 
 
 def _safe_first(values: list[str | None]) -> str:
@@ -116,8 +165,17 @@ def _safe_first(values: list[str | None]) -> str:
     return ""
 
 
-def _get_timeout(settings: AppSettings) -> float:
+def _get_timeout(settings: AppSettings, override: float | None = None) -> float:
+    if override is not None:
+        return max(0.5, float(override))
     return float(settings.request_timeout_seconds)
+
+
+def _with_default_headers(headers: dict[str, str] | None) -> dict[str, str]:
+    merged = {"User-Agent": DEFAULT_USER_AGENT, "Accept-Encoding": "gzip, deflate"}
+    if headers:
+        merged.update(headers)
+    return merged
 
 
 async def _http_get_text(
@@ -126,9 +184,12 @@ async def _http_get_text(
     settings: AppSettings,
     headers: dict[str, str] | None = None,
     params: dict[str, str] | None = None,
+    timeout: float | None = None,
 ) -> str:
-    async with httpx.AsyncClient(timeout=_get_timeout(settings), follow_redirects=True) as client:
-        response = await client.get(url, headers=headers, params=params)
+    async with httpx.AsyncClient(
+        timeout=_get_timeout(settings, timeout), follow_redirects=True
+    ) as client:
+        response = await client.get(url, headers=_with_default_headers(headers), params=params)
         response.raise_for_status()
         return response.text
 
@@ -139,9 +200,10 @@ def _http_get_text_sync(
     settings: AppSettings,
     headers: dict[str, str] | None = None,
     params: dict[str, str] | None = None,
+    timeout: float | None = None,
 ) -> str:
-    with httpx.Client(timeout=_get_timeout(settings), follow_redirects=True) as client:
-        response = client.get(url, headers=headers, params=params)
+    with httpx.Client(timeout=_get_timeout(settings, timeout), follow_redirects=True) as client:
+        response = client.get(url, headers=_with_default_headers(headers), params=params)
         response.raise_for_status()
         return response.text
 
@@ -152,11 +214,33 @@ def _http_get_json_sync(
     settings: AppSettings,
     headers: dict[str, str] | None = None,
     params: dict[str, str] | None = None,
+    timeout: float | None = None,
 ) -> dict:
-    with httpx.Client(timeout=_get_timeout(settings), follow_redirects=True) as client:
-        response = client.get(url, headers=headers, params=params)
+    with httpx.Client(timeout=_get_timeout(settings, timeout), follow_redirects=True) as client:
+        response = client.get(url, headers=_with_default_headers(headers), params=params)
         response.raise_for_status()
         return response.json()
+
+
+async def _probe(
+    factory: Callable[[], T],
+    *,
+    fallback: T,
+    label: str,
+    timeout: float = DASHBOARD_PROBE_TIMEOUT_SECONDS,
+) -> T:
+    """Run a blocking probe off the event loop, bounded by ``timeout``.
+
+    Any failure (timeout, HTTP error, parse error) degrades to ``fallback``
+    rather than propagating: a dashboard is not worth a 500.
+    """
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(factory), timeout=timeout)
+    except (TimeoutError, asyncio.TimeoutError):
+        logger.warning("Dashboard probe %s timed out after %.1fs", label, timeout)
+    except Exception as exc:  # noqa: BLE001 - degraded dashboards beat broken ones
+        logger.warning("Dashboard probe %s failed: %s", label, exc)
+    return fallback
 
 
 def _extract_data_gov_csv_url(page_html: str) -> str:
@@ -167,14 +251,99 @@ def _extract_data_gov_csv_url(page_html: str) -> str:
     encoded = match.group(1)
     decoded = encoded.replace(r"\u002F", "/")
     decoded = html.unescape(decoded)
-    return decoded
+    return _sanitize_data_gov_url(decoded)
 
 
-def _load_market_rows(settings: AppSettings) -> list[dict[str, str]]:
-    catalog_page = _http_get_text_sync(settings.data_gov_market_catalog_url, settings=settings)
+def _sanitize_data_gov_url(url: str) -> str:
+    """Repair the resource URL data.gov.in embeds in its catalogue page.
+
+    The published value ends in a percent-encoded CRLF (``limit=all%0D%0A``),
+    which the resource API rejects with a validation error, and it carries no
+    ``format`` parameter so the API answers XML instead of CSV. Both are
+    normalised here; the api-key and resource id are preserved as published.
+    """
+    parts = urlsplit(url.strip())
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+
+    limit = (query.get("limit") or "").strip()
+    if not limit.isdigit():
+        limit = str(MARKET_ROW_LIMIT)
+    query["limit"] = limit
+    query["offset"] = (query.get("offset") or "0").strip() or "0"
+    query["format"] = "csv"
+
+    cleaned = {key.strip(): str(value).strip() for key, value in query.items()}
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(cleaned), ""))
+
+
+def _cached_market_rows(key: str) -> list[dict[str, str]] | None:
+    with _market_cache_lock:
+        entry = _market_cache.get(key)
+    if entry is None:
+        return None
+    stored_at, rows = entry
+    if time.monotonic() - stored_at > MARKET_CACHE_TTL_SECONDS:
+        return None
+    return rows
+
+
+def _store_market_rows(key: str, rows: list[dict[str, str]]) -> None:
+    with _market_cache_lock:
+        _market_cache[key] = (time.monotonic(), rows)
+
+
+def clear_market_cache() -> None:
+    with _market_cache_lock:
+        _market_cache.clear()
+
+
+def _load_market_rows(
+    settings: AppSettings,
+    *,
+    timeout: float | None = None,
+) -> list[dict[str, str]]:
+    cache_key = settings.data_gov_market_catalog_url
+    cached = _cached_market_rows(cache_key)
+    if cached is not None:
+        return cached
+
+    catalog_page = _http_get_text_sync(
+        settings.data_gov_market_catalog_url, settings=settings, timeout=timeout
+    )
     csv_url = _extract_data_gov_csv_url(catalog_page)
-    csv_payload = _http_get_text_sync(csv_url, settings=settings)
-    return list(csv.DictReader(io.StringIO(csv_payload)))
+    csv_payload = _http_get_text_sync(csv_url, settings=settings, timeout=timeout)
+    if not csv_payload.lstrip().startswith("State,"):
+        raise RuntimeError("data.gov.in did not return the expected market CSV payload")
+
+    rows = list(csv.DictReader(io.StringIO(csv_payload)))
+    if rows:
+        _store_market_rows(cache_key, rows)
+    return rows
+
+
+def _load_market_sample_rows() -> list[dict[str, str]]:
+    """Committed offline snapshot, reshaped like the live data.gov.in CSV."""
+    if not MARKET_SAMPLE_PATH.is_file():
+        return []
+
+    rows: list[dict[str, str]] = []
+    with MARKET_SAMPLE_PATH.open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            try:
+                arrival = datetime.strptime((row.get("date") or "").strip(), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            rows.append(
+                {
+                    "State": (row.get("state") or "").strip(),
+                    "District": "",
+                    "Market": (row.get("mandi") or "").strip(),
+                    "Commodity": (row.get("crop") or "").strip(),
+                    "Arrival_Date": arrival.strftime("%d/%m/%Y"),
+                    "Modal_x0020_Price": (row.get("modal_price_inr_quintal") or "").strip(),
+                }
+            )
+    return rows
 
 
 def _market_item_key(row: dict[str, str]) -> tuple[str, str, str]:
@@ -194,14 +363,57 @@ def _market_trend(current_price: float, previous_price: float | None) -> str:
     return "up" if delta > 0 else "down"
 
 
+def market_prices(
+    settings: AppSettings,
+    language: LanguageCode,
+    *,
+    crop: str | None = None,
+    state: str | None = None,
+    timeout: float | None = None,
+) -> tuple[list[MarketPriceItem], bool]:
+    """Return ``(items, live)`` and never raise.
+
+    ``live`` is True only when the data.gov.in feed answered. Otherwise the
+    committed ``data/market_prices_sample.csv`` snapshot is served, so the
+    endpoint is always a 200 with usable content.
+    """
+    try:
+        rows = _load_market_rows(settings, timeout=timeout)
+        items = _build_market_items(settings, rows, language, crop=crop, state=state)
+        if items:
+            return items, True
+        logger.warning("data.gov.in returned no usable market rows; using offline snapshot")
+    except Exception as exc:  # noqa: BLE001 - upstream flakiness must not 500
+        logger.warning("Live market price fetch failed (%s); using offline snapshot", exc)
+
+    sample = _build_market_items(
+        settings, _load_market_sample_rows(), language, crop=crop, state=state
+    )
+    return sample, False
+
+
 def localize_market_prices(
     settings: AppSettings,
     language: LanguageCode,
     *,
     crop: str | None = None,
     state: str | None = None,
+    timeout: float | None = None,
 ) -> list[MarketPriceItem]:
-    rows = _load_market_rows(settings)
+    items, _live = market_prices(
+        settings, language, crop=crop, state=state, timeout=timeout
+    )
+    return items
+
+
+def _build_market_items(
+    settings: AppSettings,
+    rows: list[dict[str, str]],
+    language: LanguageCode,
+    *,
+    crop: str | None = None,
+    state: str | None = None,
+) -> list[MarketPriceItem]:
     if not rows:
         return []
 
@@ -270,14 +482,18 @@ def _myscheme_search(
     *,
     keyword: str,
     size: int = 8,
+    timeout: float | None = None,
 ) -> list[dict]:
     base_url = f"{settings.myscheme_api_url}/search/v6/schemes"
     try:
         payload = _http_get_json_sync(
             base_url,
             settings=settings,
-            headers=_official_browser_headers("https://www.myscheme.gov.in/search"),
+            headers=_official_browser_headers(
+                "https://www.myscheme.gov.in/search", settings.myscheme_api_key
+            ),
             params={"lang": "en", "keyword": keyword, "from": "0", "size": str(size)},
+            timeout=timeout,
         )
         return payload.get("data", {}).get("hits", {}).get("items", [])
     except Exception:
@@ -289,7 +505,9 @@ def _myscheme_scheme_details(settings: AppSettings, slug: str) -> dict:
     payload = _http_get_json_sync(
         base_url,
         settings=settings,
-        headers=_official_browser_headers(f"https://www.myscheme.gov.in/schemes/{slug}"),
+        headers=_official_browser_headers(
+            f"https://www.myscheme.gov.in/schemes/{slug}", settings.myscheme_api_key
+        ),
         params={"slug": slug, "lang": "en"},
     )
     return payload.get("data", {})
@@ -402,13 +620,111 @@ def recommend_schemes(settings: AppSettings, payload: SchemeRecommendationReques
     return items
 
 
+def rental_tools(
+    settings: AppSettings,
+    language: LanguageCode,
+    *,
+    location: str | None = None,
+    timeout: float | None = None,
+) -> tuple[list[RentalTool], bool]:
+    """Return ``(tools, live)`` and never raise.
+
+    The eNAM logistics page no longer renders the provider table this scraper
+    was written against (zero ``<td>`` elements today), so the live path
+    reliably yields nothing. When that happens the committed catalogue is
+    served instead of an empty list.
+    """
+    try:
+        scraped = _scrape_enam_rental_tools(
+            settings, language, location=location, timeout=timeout
+        )
+        if scraped:
+            return scraped, True
+        logger.info("eNAM logistics page matched no providers; using offline catalogue")
+    except Exception as exc:  # noqa: BLE001 - upstream flakiness must not 500
+        logger.warning("eNAM logistics fetch failed (%s); using offline catalogue", exc)
+
+    return _fallback_rental_tools(settings, language, location=location), False
+
+
 def localize_rental_tools(
     settings: AppSettings,
     language: LanguageCode,
     *,
     location: str | None = None,
+    timeout: float | None = None,
 ) -> list[RentalTool]:
-    page = _http_get_text_sync(settings.enam_logistics_url, settings=settings)
+    tools, _live = rental_tools(settings, language, location=location, timeout=timeout)
+    return tools
+
+
+def _fallback_rental_tools(
+    settings: AppSettings,
+    language: LanguageCode,
+    *,
+    location: str | None = None,
+) -> list[RentalTool]:
+    location_filter = location.strip().lower() if location else None
+    results: list[RentalTool] = []
+    for entry in RENTAL_TOOL_CATALOG:
+        coverage = str(entry["location"])
+        name = str(entry["name"])
+        if location_filter:
+            haystack = f"{coverage} {name} {entry['provider']}".lower()
+            if location_filter not in haystack and "pan-india" not in coverage.lower():
+                continue
+        results.append(
+            RentalTool(
+                name=_translate_value(settings, name, language),
+                hourly_rate_inr=entry["hourly_rate_inr"],  # type: ignore[arg-type]
+                provider=_translate_value(settings, str(entry["provider"]), language),
+                location=_translate_value(settings, coverage, language),
+                availability=_translate_value(settings, FALLBACK_AVAILABILITY, language),
+                service_type=_translate_value(settings, str(entry["service_type"]), language),
+                source_url=str(entry["source_url"]),
+            )
+        )
+    return results
+
+
+def _enam_page(settings: AppSettings, timeout: float | None) -> str | None:
+    """Fetch the eNAM page through a short-TTL cache. ``None`` means unreachable."""
+    key = settings.enam_logistics_url
+    with _rental_cache_lock:
+        entry = _rental_cache.get(key)
+    if entry is not None and time.monotonic() - entry[0] <= RENTAL_CACHE_TTL_SECONDS:
+        return entry[1]
+
+    budget = min(
+        RENTAL_SCRAPE_TIMEOUT_SECONDS,
+        float(timeout) if timeout is not None else float(settings.request_timeout_seconds),
+    )
+    try:
+        page: str | None = _http_get_text_sync(key, settings=settings, timeout=budget)
+    except Exception as exc:  # noqa: BLE001 - cached as a negative result
+        logger.warning("eNAM logistics fetch failed (%s); caching offline fallback", exc)
+        page = None
+
+    with _rental_cache_lock:
+        _rental_cache[key] = (time.monotonic(), page)
+    return page
+
+
+def clear_rental_cache() -> None:
+    with _rental_cache_lock:
+        _rental_cache.clear()
+
+
+def _scrape_enam_rental_tools(
+    settings: AppSettings,
+    language: LanguageCode,
+    *,
+    location: str | None = None,
+    timeout: float | None = None,
+) -> list[RentalTool]:
+    page = _enam_page(settings, timeout)
+    if page is None:
+        return []
     location_filter = location.lower() if location else None
     results: list[RentalTool] = []
     for match in ENAM_LOGISTICS_ROW_RE.finditer(page):
@@ -441,9 +757,16 @@ def localize_rental_tools(
 def localize_investor_opportunities(
     settings: AppSettings,
     language: LanguageCode,
+    *,
+    timeout: float | None = None,
 ) -> list[InvestorOpportunity]:
     opportunities: list[InvestorOpportunity] = []
-    for hit in _myscheme_search(settings, keyword="agribusiness entrepreneurship financing farmer producer organization", size=6):
+    for hit in _myscheme_search(
+        settings,
+        keyword="agribusiness entrepreneurship financing farmer producer organization",
+        size=6,
+        timeout=timeout,
+    ):
         fields = hit.get("fields") or {}
         slug = fields.get("slug")
         title = str(fields.get("schemeName") or "")
@@ -683,45 +1006,83 @@ async def fetch_news_feed(
     return headlines
 
 
-def summary(settings: AppSettings) -> DashboardSummary:
-    try:
-        listed_tools = len(localize_rental_tools(settings, "en"))
-    except Exception:
-        listed_tools = 0
-
-    try:
-        investor_deals = len(localize_investor_opportunities(settings, "en"))
-    except Exception:
-        investor_deals = 0
-
-    live_market_enabled = False
-    try:
-        live_market_enabled = bool(localize_market_prices(settings, "en"))
-    except Exception:
-        live_market_enabled = False
-
-    live_scheme_enabled = False
-    try:
-        live_scheme_enabled = bool(
-            _http_get_json_sync(
-                f"{settings.myscheme_api_url}/search/v6/schemes/facets",
-                settings=settings,
-                headers=_official_browser_headers("https://www.myscheme.gov.in/search"),
-                params={"lang": "en"},
-            )
+def _scheme_facet_probe(settings: AppSettings, timeout: float) -> bool:
+    return bool(
+        _http_get_json_sync(
+            f"{settings.myscheme_api_url}/search/v6/schemes/facets",
+            settings=settings,
+            headers=_official_browser_headers(
+                "https://www.myscheme.gov.in/search", settings.myscheme_api_key
+            ),
+            params={"lang": "en"},
+            timeout=timeout,
         )
-    except Exception:
-        live_scheme_enabled = False
+    )
 
-    return storage_dashboard_summary(
+
+async def summary(settings: AppSettings) -> DashboardSummary:
+    """Dashboard counters, assembled from concurrent, timeout-bounded probes.
+
+    Previously this ran four blocking third-party requests back to back on the
+    request thread (~42 s worst case). Each probe now has its own short timeout
+    and they all run at once, so the endpoint stays responsive and degrades to
+    offline snapshots instead of hanging.
+    """
+    timeout = min(DASHBOARD_PROBE_TIMEOUT_SECONDS, float(settings.request_timeout_seconds))
+
+    tools_result, investor_result, market_result, scheme_live, translation_live = (
+        await asyncio.gather(
+            _probe(
+                lambda: rental_tools(settings, "en", timeout=timeout),
+                fallback=([], False),
+                label="rental_tools",
+                timeout=timeout,
+            ),
+            _probe(
+                lambda: localize_investor_opportunities(settings, "en", timeout=timeout),
+                fallback=[],
+                label="investor_opportunities",
+                timeout=timeout,
+            ),
+            _probe(
+                lambda: market_prices(settings, "en", timeout=timeout),
+                fallback=([], False),
+                label="market_prices",
+                timeout=timeout,
+            ),
+            _probe(
+                lambda: _scheme_facet_probe(settings, timeout),
+                fallback=False,
+                label="scheme_facets",
+                timeout=timeout,
+            ),
+            _probe(
+                lambda: is_translation_enabled(settings),
+                fallback=False,
+                label="translation",
+                timeout=timeout,
+            ),
+        )
+    )
+
+    tools, _tools_live = tools_result
+    market_items, live_market_enabled = market_result
+
+    # Counting the offline catalogue keeps the tile populated when eNAM is down.
+    listed_tools = len(tools) or len(RENTAL_TOOL_CATALOG)
+
+    # Keep the DB round-trip off the event loop too: it is a local SQLite
+    # COUNT in development but a network call against Cloud SQL in production.
+    return await asyncio.to_thread(
+        storage_dashboard_summary,
         settings,
         listed_tools=listed_tools,
-        investor_deals=investor_deals,
-        available_languages=2,
-        translation_enabled=is_translation_enabled(settings),
+        investor_deals=len(investor_result),
+        available_languages=len(LANGUAGE_LABELS),
+        translation_enabled=bool(translation_live),
         live_search_enabled=True,
-        live_market_enabled=live_market_enabled,
-        live_scheme_enabled=live_scheme_enabled,
+        live_market_enabled=bool(live_market_enabled and market_items),
+        live_scheme_enabled=bool(scheme_live),
         write_auth_enabled=bool(settings.jwt_secret and settings.admin_username),
         audit_logging_enabled=settings.enable_audit_logging,
     )
@@ -729,6 +1090,71 @@ def summary(settings: AppSettings) -> DashboardSummary:
 
 def localized_note(language: str) -> str:
     return tr(language, "irrigation_note")
+
+
+# ---------------------------------------------------------------------------
+# Farmer directory search
+#
+# The storage layer matches an unanchored LIKE '%q%' across farmer_id, name,
+# mobile, district and state. On mobile numbers that is a bulk-PII sieve: the
+# two-character query "99" returns every farmer whose number contains "99".
+# The rules below re-filter the candidate rows so a mobile number only ever
+# matches on an exact value or a genuine dialling prefix.
+# ---------------------------------------------------------------------------
+
+MIN_SEARCH_QUERY_LENGTH = 3
+MAX_SEARCH_RESULTS = 20
+MIN_MOBILE_PREFIX_DIGITS = 4
+_NON_DIGITS_RE = re.compile(r"\D")
+
+
+def _mobile_matches(mobile: str, query: str) -> bool:
+    normalized_mobile = _NON_DIGITS_RE.sub("", mobile or "")
+    normalized_query = _NON_DIGITS_RE.sub("", query)
+    if not normalized_mobile or not normalized_query:
+        return False
+    if normalized_mobile == normalized_query:
+        return True
+    # Prefix search is only useful (and only safe) with enough leading digits.
+    if len(normalized_query) < MIN_MOBILE_PREFIX_DIGITS:
+        return False
+    return normalized_mobile.startswith(normalized_query)
+
+
+def _identity_matches(result: FarmerSearchResult, needle: str) -> bool:
+    fields = (result.farmer_id, result.name, result.district, result.state)
+    return any(needle in (value or "").lower() for value in fields)
+
+
+def search_farmers(
+    settings: AppSettings,
+    query: str,
+    *,
+    limit: int = 8,
+) -> list[FarmerSearchResult]:
+    """Search the farmer directory with PII-safe matching rules.
+
+    Raises ``ValueError`` when the query is too short to be a lookup rather
+    than an enumeration attempt.
+    """
+    needle = (query or "").strip()
+    if len(needle) < MIN_SEARCH_QUERY_LENGTH:
+        raise ValueError(
+            f"Search query must be at least {MIN_SEARCH_QUERY_LENGTH} characters."
+        )
+
+    capped_limit = max(1, min(int(limit), MAX_SEARCH_RESULTS))
+    # Over-fetch a little because rows that only matched a mid-number substring
+    # are dropped below; cap the over-fetch so this stays a bounded query.
+    candidates = storage_search_users(settings, needle, limit=min(capped_limit * 5, 100))
+
+    lowered = needle.lower()
+    filtered = [
+        candidate
+        for candidate in candidates
+        if _identity_matches(candidate, lowered) or _mobile_matches(candidate.mobile, needle)
+    ]
+    return filtered[:capped_limit]
 
 
 __all__ = [
@@ -744,11 +1170,16 @@ __all__ = [
     "localize_market_prices",
     "localize_rental_tools",
     "localized_note",
+    "market_prices",
     "recommend_schemes",
+    "rental_tools",
+    "search_farmers",
     "search_knowledge",
     "search_locations",
     "summary",
     "upsert_user",
+    "MAX_SEARCH_RESULTS",
+    "MIN_SEARCH_QUERY_LENGTH",
     "UserProfile",
     "UserProfileCreate",
 ]

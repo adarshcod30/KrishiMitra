@@ -1,39 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { AsyncSection } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchKnowledgeLibrary } from "@/lib/api";
-import type { KnowledgeArticle } from "@/lib/types";
+import { useAsyncResource } from "@/lib/hooks";
 
 const CATEGORIES = ["all", "production", "treatment", "horticulture", "soil", "market"] as const;
 
 export function KnowledgePage() {
   const { t, language } = useLanguage();
-  const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
   const [category, setCategory] = useState<string>("all");
   const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  async function loadArticles() {
-    setBusy(true);
-    try {
-      const result = await fetchKnowledgeLibrary(language, query || undefined);
-      setArticles(result);
-    } catch {
-      setArticles([]);
-    } finally {
-      setBusy(false);
-    }
+  // The query is applied on demand (Search / Enter), not on every keystroke.
+  const submittedQueryRef = useRef("");
+
+  const loadArticles = useCallback(
+    () => fetchKnowledgeLibrary(language, submittedQueryRef.current || undefined),
+    [language]
+  );
+
+  const articlesResource = useAsyncResource(loadArticles, t("feedback.loadFailed"));
+
+  function submitQuery() {
+    submittedQueryRef.current = query.trim();
+    articlesResource.reload();
   }
 
-  useEffect(() => {
-    loadArticles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
-
-  const filtered = category === "all" ? articles : articles.filter((a) => a.category === category);
+  const filtered = (articlesResource.data ?? []).filter(
+    (article) => category === "all" || article.category === category
+  );
 
   const categoryIcon = (cat: string) => {
     const icons: Record<string, string> = {
@@ -56,10 +55,19 @@ export function KnowledgePage() {
             placeholder={t("knowledge.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && loadArticles()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                submitQuery();
+              }
+            }}
           />
-          <button type="button" className="primary-btn small-btn" onClick={loadArticles}>
-            {busy ? t("common.loading") : t("common.search")}
+          <button
+            type="button"
+            className="primary-btn small-btn"
+            onClick={submitQuery}
+            disabled={articlesResource.isLoading}
+          >
+            {articlesResource.isLoading ? t("common.loading") : t("common.search")}
           </button>
         </div>
 
@@ -87,8 +95,13 @@ export function KnowledgePage() {
           )}
         </div>
 
-        {busy && <p className="muted-copy">{t("common.loading")}</p>}
-        {filtered.length > 0 ? (
+        <AsyncSection
+          resource={articlesResource}
+          icon="📚"
+          emptyMessage={t("knowledge.empty")}
+          isEmpty={() => filtered.length === 0}
+        >
+          {() => (
           <div className="result-layout animate-in fade-in slide-in-from-bottom-4 duration-500">
             {filtered.map((article) => (
               <div key={article.id} className="recommendation-card">
@@ -124,14 +137,8 @@ export function KnowledgePage() {
               </div>
             ))}
           </div>
-        ) : (
-          !busy && (
-            <div className="empty-state-illust py-8">
-              <div className="illust-icon opacity-20">📚</div>
-              <p className="muted-copy">{t("knowledge.empty")}</p>
-            </div>
-          )
-        )}
+          )}
+        </AsyncSection>
       </section>
     </div>
   );

@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchSchemes } from "@/lib/api";
+import { toUserMessage } from "@/lib/errors";
 import type { SchemeItem } from "@/lib/types";
 
 const FARMER_TYPES = ["small", "marginal", "medium", "large"] as const;
@@ -28,9 +30,12 @@ export function SchemesPage() {
   });
   const [schemes, setSchemes] = useState<SchemeItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   async function handleFind() {
     setBusy(true);
+    setError(null);
     try {
       const response = await fetchSchemes({
         ...input,
@@ -39,8 +44,11 @@ export function SchemesPage() {
         mobile: activeFarmer?.mobile,
       });
       setSchemes(response.schemes);
-    } catch {
+      setHasSearched(true);
+    } catch (caught) {
       setSchemes([]);
+      setHasSearched(true);
+      setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
@@ -94,7 +102,8 @@ export function SchemesPage() {
               </select>
             </label>
           </div>
-          <button type="button" className="primary-btn" onClick={handleFind}>
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
+          <button type="button" className="primary-btn" onClick={handleFind} disabled={busy}>
             {busy ? t("common.loading") : t("schemes.findSchemes")}
           </button>
         </article>
@@ -109,7 +118,9 @@ export function SchemesPage() {
             )}
           </div>
 
-          {schemes.length > 0 ? (
+          {busy ? (
+            <LoadingState icon="🏛️" />
+          ) : schemes.length > 0 ? (
             <div className="result-layout animate-in slide-in-from-bottom-4 duration-500">
               {schemes.map((scheme) => (
                 <div key={scheme.id} className="recommendation-card">
@@ -149,7 +160,7 @@ export function SchemesPage() {
             <div className="empty-state-illust">
               <div className="illust-icon">🏛️</div>
               <p className="muted-copy">
-                {busy ? t("common.loading") : (schemes.length === 0 && input.state ? "No specific schemes found for this criteria. Try adjusting filters." : t("schemes.empty"))}
+                {hasSearched ? t("shell.noSearchResults") : t("schemes.empty")}
               </p>
             </div>
           )}

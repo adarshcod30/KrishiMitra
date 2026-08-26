@@ -7,11 +7,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:standalone": "node .next/standalone/server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "bootstrap:data": "cd ml-service && ./agrotech/bin/python scripts/bootstrap_datasets.py",
-    "dev:ml": "cd ml-service && ./agrotech/bin/python -m uvicorn agrotech_ml.api:app --reload --port 8000",
-    "train:ml": "cd ml-service && ./agrotech/bin/python -m agrotech_ml.train"
+    "bootstrap:data": "cd ml-service && ./.venv/bin/python scripts/bootstrap_datasets.py",
+    "dev:ml": "cd ml-service && ./.venv/bin/python -m uvicorn agrotech_ml.api:app --reload --port 8000",
+    "train:ml": "cd ml-service && ./.venv/bin/python -m agrotech_ml.services.train"
   },
   "engines": {
     "node": ">=20.11.0"
@@ -19,7 +20,7 @@
   "dependencies": {
     "clsx": "2.1.1",
     "framer-motion": "12.36.0",
-    "next": "16.1.6",
+    "next": "16.3.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "3.8.0",
@@ -30,7 +31,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.3.3",
     "typescript": "5.9.3"
   }
 }

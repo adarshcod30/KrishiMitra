@@ -7,9 +7,11 @@ export default defineConfig([
   ...nextTypescript,
   globalIgnores([
     ".next/**",
+    ".claude/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
-    "ml-service/**"
+    "ml-service/**",
+    "satellite-ml/**"
   ])
 ]);

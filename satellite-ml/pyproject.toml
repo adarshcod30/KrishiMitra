@@ -16,7 +16,10 @@ keywords = ["remote-sensing", "agriculture", "crop-classification", "sentinel", 
 #     -> moisture stress -> FAO-56 advisory -> validation -> maps) runs on
 #     these alone. Everything below in [optional-dependencies] is additive. ---
 dependencies = [
-  "numpy>=1.24",
+  # numpy 2.3 REMOVED np.trapz (renamed np.trapezoid in 2.0); the code handles
+  # both, but pin a compatible window so a clean install cannot land on an
+  # untested major. Verified against numpy 1.26.x and 2.x.
+  "numpy>=1.26,<3",
   "pandas>=2.0",
   "scipy>=1.10",
   "scikit-learn>=1.3",
@@ -50,6 +53,13 @@ krishimitra-rs = "krishimitra_rs.pipeline:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# The default pilot config ships *inside* the package so the ``krishimitra-rs``
+# console script works after a plain (non-editable) ``pip install .`` from any
+# working directory. Kept byte-identical to satellite-ml/config/pilot_area.yaml
+# (asserted by tests/test_pipeline.py::test_packaged_config_matches_repo_config).
+[tool.setuptools.package-data]
+"krishimitra_rs.config" = ["*.yaml"]
 
 [tool.ruff]
 line-length = 100

@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { useCallback, useEffect, useState } from "react";
+import { ErrorNotice, ErrorState, LoadingState } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchFarmerWorkspace, upsertUser, searchFarmers, addFarm } from "@/lib/api";
-import type { FarmerWorkspace, FarmerSearchResult } from "@/lib/types";
+import { MIN_FARMER_SEARCH_LENGTH } from "@/lib/constants";
+import { toUserMessage } from "@/lib/errors";
+import { useDebouncedValue } from "@/lib/hooks";
+import type { AdvisoryRecord, FarmerWorkspace, FarmerSearchResult } from "@/lib/types";
 
 export function FarmerHistoryPage() {
   const { t, language } = useLanguage();
@@ -15,13 +18,24 @@ export function FarmerHistoryPage() {
     activeFarmer ? "profile" : "find"
   );
   const [workspace, setWorkspace] = useState<FarmerWorkspace | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<FarmerSearchResult[]>([]);
-  
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 400);
+  const trimmedSearchQuery = debouncedSearchQuery.trim();
+  const isSearchQueryTooShort =
+    trimmedSearchQuery.length > 0 && trimmedSearchQuery.length < MIN_FARMER_SEARCH_LENGTH;
+
   const [form, setForm] = useState({
     farmer_id: "",
     name: "",
@@ -36,31 +50,64 @@ export function FarmerHistoryPage() {
     irrigation_source: "Canal"
   });
 
+  // Fall back to the search tab whenever the active farmer is cleared.
   useEffect(() => {
     if (!activeFarmer) {
+      setActiveTab((tab) => (tab === "profile" ? "find" : tab));
+    }
+  }, [activeFarmer]);
+
+  const farmerId = activeFarmer?.farmer_id ?? null;
+
+  useEffect(() => {
+    if (!farmerId) {
       setWorkspace(null);
-      if (activeTab === "profile") setActiveTab("find");
+      setWorkspaceError(null);
+      setWorkspaceLoading(false);
       return;
     }
 
-    void fetchFarmerWorkspace(activeFarmer.farmer_id).then((data) => {
-      setWorkspace(data);
-      setForm((prev) => ({
-        ...prev,
-        farmer_id: data.profile.farmer_id,
-        name: data.profile.name,
-        mobile: data.profile.mobile,
-        state: data.profile.state ?? "",
-        district: data.profile.district ?? "",
-        farm_name: data.farms[0]?.farm_name ?? prev.farm_name,
-        village: data.farms[0]?.village ?? prev.village,
-        acres: data.farms[0]?.acres ?? prev.acres,
-        primary_crop: data.farms[0]?.primary_crop ?? prev.primary_crop,
-        soil_type: data.farms[0]?.soil_type ?? prev.soil_type,
-        irrigation_source: data.farms[0]?.irrigation_source ?? prev.irrigation_source
-      }));
-    });
-  }, [activeFarmer]);
+    let cancelled = false;
+    setWorkspaceLoading(true);
+
+    fetchFarmerWorkspace(farmerId)
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setWorkspace(data);
+        setWorkspaceError(null);
+        setForm((prev) => ({
+          ...prev,
+          farmer_id: data.profile.farmer_id,
+          name: data.profile.name,
+          mobile: data.profile.mobile,
+          state: data.profile.state ?? "",
+          district: data.profile.district ?? "",
+          farm_name: data.farms[0]?.farm_name ?? prev.farm_name,
+          village: data.farms[0]?.village ?? prev.village,
+          acres: data.farms[0]?.acres ?? prev.acres,
+          primary_crop: data.farms[0]?.primary_crop ?? prev.primary_crop,
+          soil_type: data.farms[0]?.soil_type ?? prev.soil_type,
+          irrigation_source: data.farms[0]?.irrigation_source ?? prev.irrigation_source
+        }));
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setWorkspace(null);
+          setWorkspaceError(toUserMessage(caught, t("feedback.loadFailed")));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setWorkspaceLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [farmerId, workspaceReloadToken, t]);
 
   function generateId() {
     const s = () => Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -68,30 +115,59 @@ export function FarmerHistoryPage() {
   }
 
   function handleCopy(id: string) {
-    navigator.clipboard.writeText(id);
+    void navigator.clipboard.writeText(id).catch(() => undefined);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function handleSearch() {
-    if (!searchQuery.trim()) return;
-    setBusy(true);
-    setSearchResults([]); // Clear previous results
-    try {
-      const results = await searchFarmers(searchQuery);
-      setSearchResults(results);
-    } catch (err) {
-      console.error("Search failed:", err);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const runSearch = useCallback(
+    async (term: string, signal?: { cancelled: boolean }) => {
+      // The API rejects anything shorter with a 422, so never send it.
+      if (term.length < MIN_FARMER_SEARCH_LENGTH) {
+        setSearchResults([]);
+        setSearchError(null);
+        setHasSearched(false);
+        return;
+      }
+
+      setBusy(true);
+      setSearchError(null);
+      try {
+        const results = await searchFarmers(term);
+        if (!signal?.cancelled) {
+          setSearchResults(results);
+          setHasSearched(true);
+        }
+      } catch (caught) {
+        if (!signal?.cancelled) {
+          setSearchResults([]);
+          setHasSearched(true);
+          setSearchError(toUserMessage(caught, t("feedback.searchFailed")));
+        }
+      } finally {
+        if (!signal?.cancelled) {
+          setBusy(false);
+        }
+      }
+    },
+    [t]
+  );
+
+  // Debounced auto-search: typing "R" or "Ra" never reaches the network.
+  useEffect(() => {
+    const signal = { cancelled: false };
+    void runSearch(trimmedSearchQuery, signal);
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [trimmedSearchQuery, runSearch]);
 
   async function handleSave() {
     setBusy(true);
+    setSaveError(null);
     try {
       const finalId = form.farmer_id.trim() || generateId();
-      
+
       const profile = await upsertUser({
         farmer_id: finalId,
         name: form.name,
@@ -116,6 +192,9 @@ export function FarmerHistoryPage() {
 
       setActiveFarmer(profile);
       setActiveTab("profile");
+    } catch (caught) {
+      // Without this the rejection is unhandled and the spinner just stops.
+      setSaveError(toUserMessage(caught, t("feedback.saveFailed")));
     } finally {
       setBusy(false);
     }
@@ -167,13 +246,29 @@ export function FarmerHistoryPage() {
                         placeholder={t("shell.searchPlaceholder")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            void runSearch(searchQuery.trim());
+                          }
+                        }}
                       />
-                      <button className="primary-btn" onClick={handleSearch} disabled={busy}>
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() => void runSearch(searchQuery.trim())}
+                        disabled={busy || searchQuery.trim().length < MIN_FARMER_SEARCH_LENGTH}
+                      >
                         {busy ? "..." : t("common.search")}
                       </button>
                     </div>
+                    {isSearchQueryTooShort && (
+                      <p className="hint-text">{t("feedback.minSearchLength")}</p>
+                    )}
                   </div>
+
+                  {searchError && (
+                    <ErrorNotice message={searchError} onDismiss={() => setSearchError(null)} />
+                  )}
 
                   {searchResults.length > 0 ? (
                     <div className="search-results-list mt-6">
@@ -206,7 +301,7 @@ export function FarmerHistoryPage() {
                       ))}
                     </div>
                   ) : (
-                    searchQuery && !busy && (
+                    hasSearched && !busy && !searchError && (
                       <div className="empty-state-airy mt-6">
                         <div className="text-2xl mb-2">🔍</div>
                         <p>{t("shell.noSearchResults")}</p>
@@ -331,8 +426,12 @@ export function FarmerHistoryPage() {
                     </div>
                   </div>
 
+                  {saveError && (
+                    <ErrorNotice message={saveError} onDismiss={() => setSaveError(null)} />
+                  )}
+
                   <div className="mt-12 pt-8 border-t border-line flex justify-end">
-                    <button className="primary-btn px-16 py-4 text-lg" onClick={handleSave} disabled={busy}>
+                    <button type="button" className="primary-btn px-16 py-4 text-lg" onClick={handleSave} disabled={busy}>
                       {busy ? t("common.loading") : t("common.save")}
                     </button>
                   </div>
@@ -390,9 +489,16 @@ export function FarmerHistoryPage() {
                       <div className="badge badge-brand">LIVE DATA</div>
                     </div>
 
-                    {workspace?.advisories && workspace.advisories.length > 0 ? (
+                    {workspaceLoading ? (
+                      <LoadingState icon="👤" />
+                    ) : workspaceError ? (
+                      <ErrorState
+                        message={workspaceError}
+                        onRetry={() => setWorkspaceReloadToken((token) => token + 1)}
+                      />
+                    ) : workspace?.advisories && workspace.advisories.length > 0 ? (
                       <div className="records-list">
-                        {workspace.advisories.map((item: any) => (
+                        {workspace.advisories.map((item: AdvisoryRecord) => (
                           <div key={item.id} className="record-item hover:bg-slate-50 transition-colors">
                             <div className="record-info">
                               <div className="flex items-center gap-3">

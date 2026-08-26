@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { recommendFertilizer } from "@/lib/api";
+import { toUserMessage } from "@/lib/errors";
 import type { FertilizerResponse } from "@/lib/types";
 
 export function FertilizerPage() {
@@ -22,9 +24,11 @@ export function FertilizerPage() {
   });
   const [result, setResult] = useState<FertilizerResponse | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleRecommend() {
     setBusy(true);
+    setError(null);
     try {
       const response = await recommendFertilizer({
         ...input,
@@ -33,6 +37,9 @@ export function FertilizerPage() {
         mobile: activeFarmer?.mobile,
       });
       setResult(response);
+    } catch (caught) {
+      // Without this the rejection is unhandled and the spinner just stops.
+      setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
@@ -76,7 +83,8 @@ export function FertilizerPage() {
               <input type="number" step="0.1" value={input.ph} onChange={(e) => setInput((p) => ({ ...p, ph: Number(e.target.value) }))} />
             </label>
           </div>
-          <button type="button" className="primary-btn" onClick={handleRecommend}>
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
+          <button type="button" className="primary-btn" onClick={handleRecommend} disabled={busy}>
             {busy ? t("common.loading") : t("common.predict")}
           </button>
         </article>
@@ -91,7 +99,9 @@ export function FertilizerPage() {
             )}
           </div>
 
-          {result ? (
+          {busy && !result ? (
+            <LoadingState icon="🧬" />
+          ) : result ? (
             <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
               <div className="recommendation-header">
                 <div className="crop-icon-wrapper">🧬</div>

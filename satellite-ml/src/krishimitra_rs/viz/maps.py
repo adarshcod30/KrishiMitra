@@ -95,12 +95,15 @@ def plot_advisory_map(adv, wb, cube, cfg, out: Path, dpi=130) -> Path:
     return out
 
 
-def plot_phenology_curves(cube, indices, cfg, out: Path, dpi=130) -> Path:
+def plot_phenology_curves(cube, indices, cfg, out: Path, dpi=130, labels=None) -> Path:
     ndvi = indices["ndvi"]
     dates = [d.isoformat()[5:] for d in cube.dates]
+    # Prefer ground truth; fall back to the derived crop map (GEE path has no labels).
+    if labels is None:
+        labels = cube.labels
     fig, ax = plt.subplots(figsize=(11, 5))
     for c in cfg.crops:
-        m = cube.labels == c["code"] if cube.labels is not None else None
+        m = labels == c["code"] if labels is not None else None
         if m is None or not m.any():
             continue
         mean = ndvi[:, m].mean(1)
@@ -187,13 +190,16 @@ def render_all(bundle, cfg, out_dir: Path) -> dict[str, str]:
                                                maps / "moisture_stress_map.png", dpi))
     paths["advisory_map"] = str(plot_advisory_map(bundle.advisory, bundle.wb, bundle.cube, cfg,
                                                   maps / "irrigation_advisory_map.png", dpi))
-    paths["phenology"] = str(plot_phenology_curves(bundle.cube, bundle.fs.indices, cfg,
-                                                   figs / "phenology_curves.png", dpi))
+    paths["phenology"] = str(plot_phenology_curves(
+        bundle.cube, bundle.fs.indices, cfg, figs / "phenology_curves.png", dpi,
+        labels=bundle.cube.labels if bundle.cube.labels is not None else bundle.crop.crop_map))
     paths["timeseries"] = str(plot_timeseries_panels(bundle.stress, bundle.advisory, bundle.wb,
                                                      bundle.cube, figs / "timeseries_panels.png", dpi))
-    best = bundle.crop.best_model
-    paths["confusion"] = str(plot_confusion_matrix(bundle.crop.metrics[best],
-                                                   figs / "confusion_matrix.png", dpi))
+    # No confusion matrix when crop typing was skipped (no ground-truth labels).
+    cls_metrics = bundle.crop.metrics.get(bundle.crop.best_model)
+    if cls_metrics is not None:
+        paths["confusion"] = str(plot_confusion_matrix(cls_metrics,
+                                                       figs / "confusion_matrix.png", dpi))
     return paths
 
 

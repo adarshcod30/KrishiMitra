@@ -1,22 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { SUPPORTED_LANGUAGES } from "@/lib/constants";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export function LanguageSwitcher() {
   const { language, setLanguage, t } = useLanguage();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
+  // No `mounted` gate: LanguageContext reads localStorage through
+  // useSyncExternalStore, so the hydration render matches the server output.
   return (
     <div className="language-toggle compact">
-      <span className="language-toggle-title">Lang</span>
+      <span className="language-toggle-title">{t("common.language")}</span>
       <div className="language-grid compact">
         {SUPPORTED_LANGUAGES.map((lang) => (
           <button

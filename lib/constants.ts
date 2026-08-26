@@ -1,8 +1,38 @@
 import type { TranslationKey } from "@/lib/i18n";
 import type { IrrigationRequest, LanguageCode, SoilFeatureKey, SoilPayload } from "@/lib/types";
 
-export const ML_API_URL =
-  process.env.NEXT_PUBLIC_ML_API_URL ?? "http://127.0.0.1:8000";
+/**
+ * Same-origin proxy route (app/api/ml/[...path]/route.ts).
+ *
+ * `NEXT_PUBLIC_*` values are inlined into the client bundle at BUILD time, so a
+ * baked-in absolute URL cannot be changed on a deployed Cloud Run revision — and
+ * a baked-in localhost URL would make every visitor's browser call their own
+ * machine. When no public URL is configured we therefore talk to this relative
+ * path instead; the route handler forwards to the SERVER-side `ML_API_URL`,
+ * which is a plain runtime env var and needs no rebuild to change.
+ */
+export const ML_API_PROXY_PATH = "/api/ml";
+
+function resolveMlApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_ML_API_URL?.trim();
+  if (!configured) {
+    return ML_API_PROXY_PATH;
+  }
+  return configured.replace(/\/+$/, "");
+}
+
+/**
+ * Base URL every `lib/api.ts` helper prefixes to its path. Either an absolute
+ * origin (when `NEXT_PUBLIC_ML_API_URL` was set at build time) or the relative
+ * proxy path above.
+ */
+export const ML_API_URL = resolveMlApiBaseUrl();
+
+/** Minimum farmer-search query length accepted by the API (`min_length=2`). */
+export const MIN_FARMER_SEARCH_LENGTH = 3;
+
+/** Minimum location-search query length accepted by the API. */
+export const MIN_LOCATION_SEARCH_LENGTH = 2;
 
 export const SUPPORTED_LANGUAGES: Array<{ code: LanguageCode; label: string; native: string }> = [
   { code: "en", label: "English", native: "English" },

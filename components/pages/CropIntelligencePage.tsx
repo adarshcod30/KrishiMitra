@@ -3,11 +3,13 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
+import { ErrorNotice } from "@/components/ui/AsyncState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { predictCrop } from "@/lib/api";
 import { DEFAULT_SOIL_PAYLOAD, FEATURE_INPUTS } from "@/lib/constants";
+import { toUserMessage } from "@/lib/errors";
 import type { PredictionResponse, SoilPayload } from "@/lib/types";
 
 const CROP_ICONS: Record<string, string> = {
@@ -55,9 +57,9 @@ export function CropIntelligencePage() {
         mobile: activeFarmer?.mobile
       });
       setResult(response);
-    } catch (err: any) {
-      console.error("Prediction failed:", err);
-      setError(err.message || "Failed to run analysis. Please check your connection or backend status.");
+    } catch (caught: unknown) {
+      console.error("Prediction failed:", caught);
+      setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
@@ -97,12 +99,7 @@ export function CropIntelligencePage() {
               </label>
             ))}
           </div>
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-100 rounded-xl mb-6 text-red-600 animate-in fade-in slide-in-from-top-2">
-              <p className="font-semibold mb-1">Error</p>
-              <p className="text-sm opacity-90">{error}</p>
-            </div>
-          )}
+          {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
 
           <div className="flex justify-end gap-3 mt-8">
             <button 
@@ -170,7 +167,7 @@ export function CropIntelligencePage() {
                           <span className="text-xl">💡</span>
                           <span className="tips-title mb-0">{t("common.agronomyTip")}</span>
                         </div>
-                        <p className="tips-content italic">"{item.agronomy_tip}"</p>
+                        <p className="tips-content italic">&ldquo;{item.agronomy_tip}&rdquo;</p>
                       </div>
 
                       <div className="actions-panel mt-4 pt-4 border-t border-dashed border-gray-200">
