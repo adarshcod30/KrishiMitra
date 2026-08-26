@@ -1,0 +1,43 @@
+# Render Blueprint — deploys the KrishiMitra FastAPI ML service from this repo.
+#
+#   Dashboard -> New -> Blueprint -> pick this repository -> Apply.
+#
+# The image is built by spaces/api/Dockerfile (shared with the Hugging Face
+# Space path): models are TRAINED AT BUILD TIME from the committed dataset, so
+# a plain git clone produces a fully working image. The container honours
+# Render's injected PORT and runs as a non-root user.
+#
+# Free-instance realities (stated, not hidden):
+#   * 512 MB RAM — the service idles at ~240 MB with all models loaded.
+#   * Spins down after ~15 min idle; the next request waits for a cold start.
+#   * Ephemeral disk — uploads vanish on restart unless AGROTECH_S3_* is set.
+#     Database rows are safe: they live in Neon, not on the instance.
+services:
+  - type: web
+    name: krishimitra-api
+    runtime: docker
+    plan: free
+    region: singapore                     # closest Render region to India
+    dockerfilePath: ./spaces/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      # Neon Postgres URL (postgresql://...?sslmode=require). Marked sync:false
+      # so Render prompts for it on Apply instead of storing it in git.
+      - key: AGROTECH_DATABASE_URL
+        sync: false
+      # Required in production mode; Render generates a strong random value.
+      - key: AGROTECH_JWT_SECRET
+        generateValue: true
+      - key: AGROTECH_ENVIRONMENT
+        value: production
+      # Demo mode: write auth off so the public dashboard can register farmers.
+      # Flip to "true" (and set admin credentials) before any real-farmer use.
+      - key: AGROTECH_REQUIRE_WRITE_AUTH
+        value: "false"
+      # Public URL of this service (https://<name>.onrender.com) — used when
+      # building upload asset URLs. Set after the first deploy assigns the URL.
+      - key: AGROTECH_PUBLIC_BASE_URL
+        sync: false
+      - key: WEB_CONCURRENCY
+        value: "1"

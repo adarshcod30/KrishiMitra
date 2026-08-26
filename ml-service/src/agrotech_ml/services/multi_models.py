@@ -100,7 +100,7 @@ def _train_irrigation_model(settings: AppSettings) -> None:
             (
                 "regressor",
                 RandomForestRegressor(
-                    n_estimators=320,
+                    n_estimators=120,
                     random_state=settings.random_state,
                     min_samples_leaf=2,
                 ),
@@ -183,7 +183,7 @@ def _train_fertilizer_model(settings: AppSettings) -> None:
             (
                 "classifier",
                 RandomForestClassifier(
-                    n_estimators=280,
+                    n_estimators=120,
                     random_state=settings.random_state,
                     min_samples_leaf=2,
                 ),

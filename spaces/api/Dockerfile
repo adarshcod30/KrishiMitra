@@ -96,6 +96,26 @@ RUN python -m pip install --upgrade pip setuptools wheel \
  && python -c "import agrotech_ml, fastapi, uvicorn; print('builder import OK')"
 
 # ---------------------------------------------------------------------------
+# Train the models AT BUILD TIME from the committed dataset (random_state=42,
+# pure-sklearn zoo, ~40 s). Rationale:
+#   * ml-service/artifacts/ is gitignored, so a git-based build (Render, CI)
+#     has no models to COPY — and the API deliberately does NOT train at
+#     startup (that was removed as a security/cold-start fix; missing models
+#     mean /predict returns 503 with a clear message).
+#   * Builders run on full CPU; a 0.1-vCPU free dyno would take many minutes.
+# The SQLite side-effect of init_db stays in /build and never ships.
+# ---------------------------------------------------------------------------
+COPY ml-service/data ./data
+COPY ml-service/scripts ./scripts
+RUN AGROTECH_ARTIFACTS_DIR=/build/artifacts \
+    AGROTECH_UPLOADS_DIR=/build/uploads \
+    AGROTECH_DATA_PATH=/build/data/Crop_dataset.csv \
+    python -m agrotech_ml.services.train \
+ && rm -f /build/artifacts/*.db /build/artifacts/*.db-wal /build/artifacts/*.db-shm \
+ && ls -la /build/artifacts \
+ && python -c "import json,pathlib; md=json.loads(pathlib.Path('/build/artifacts/model_metadata.json').read_text()); have={p.name for p in pathlib.Path('/build/artifacts').glob('*.joblib')}; need={'crop_model.joblib','fertilizer_model.joblib','irrigation_model.joblib','disease_model.joblib'}; assert md['best_model'] and not (need-have), f'artifact check failed: {need-have}'; print('build-time training OK: best=' + md['best_model'])"
+
+# ---------------------------------------------------------------------------
 # Stage 2 — runtime: slim, non-root, no toolchain, no package manager state.
 # ---------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim AS runtime
@@ -123,18 +143,11 @@ WORKDIR /home/user/app
 COPY --chown=user:user ml-service/data ./data
 COPY --chown=user:user ml-service/scripts ./scripts
 
-# Model artifacts, baked in.
-#
-# ml-service/artifacts/ is gitignored in THIS repo (a checkout has only
-# .gitkeep), so a plain `docker build` here produces an image with no models and
-# the service trains them on first boot from data/Crop_dataset.csv. To bake real
-# models in, put the .joblib/.model_metadata.json files in ml-service/artifacts/
-# before building — which is exactly what spaces/api/sync.sh copies into the
-# Space repo (tracked there with git-lfs).
-#
-# The *.db files that also live in that directory are excluded by .dockerignore:
-# agrotech.db holds farmer PII and must never enter an image layer.
-COPY --chown=user:user ml-service/artifacts ./artifacts
+# Model artifacts: trained during the builder stage from the committed
+# dataset, so a git clone builds a fully working image with no binary blobs in
+# version control. (The runtime API does not train — missing models are a hard
+# 503, by design.) No *.db ships: the builder deletes its SQLite side-effect.
+COPY --from=builder --chown=user:user /build/artifacts ./artifacts
 
 # Writable state. On a Space this is EPHEMERAL — wiped on every restart and
 # rebuild. Set AGROTECH_S3_* to keep uploads, AGROTECH_DATABASE_URL to keep rows.

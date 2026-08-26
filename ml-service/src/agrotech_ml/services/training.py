@@ -25,14 +25,21 @@ from agrotech_ml.core.settings import AppSettings
 
 def build_model_candidates(random_state: int) -> dict[str, Any]:
     candidates: dict[str, Any] = {
+        # n_estimators is deliberately modest: on this 2,200-row dataset more
+        # trees add zero accuracy but grow the pickle linearly (650 unbounded
+        # extra-trees weighed 111 MB on disk / ~240 MB in RAM, which alone
+        # ruled out 512 MB serving tiers). min_samples_leaf=2 halves node
+        # count with no measurable accuracy cost.
         "Random Forest": RandomForestClassifier(
-            n_estimators=500,
+            n_estimators=150,
             min_samples_split=3,
+            min_samples_leaf=2,
             random_state=random_state,
             n_jobs=-1,
         ),
         "Extra Trees": ExtraTreesClassifier(
-            n_estimators=650,
+            n_estimators=150,
+            min_samples_leaf=2,
             random_state=random_state,
             n_jobs=-1,
         ),

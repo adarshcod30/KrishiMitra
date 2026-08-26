@@ -14,10 +14,6 @@ dependencies = [
   "numpy==2.4.3",
   "pandas==3.0.1",
   "scikit-learn==1.8.0",
-  "xgboost==3.2.0",
-  "lightgbm==4.6.0",
-  "catboost==1.2.10",
-  "optuna==4.7.0",
   "pydantic==2.12.5",
   "pydantic-settings==2.13.1",
   "joblib==1.5.3",
@@ -26,6 +22,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Extra tree-boosting candidates for the training bake-off. Serving never needs
+# these: build_model_candidates() imports each inside try/except and simply
+# offers a smaller zoo when they are absent.
+train = ["xgboost==3.2.0", "lightgbm==4.6.0", "catboost==1.2.10", "optuna==4.7.0"]
 # Managed Postgres (Neon, Supabase, any Postgres URL). Needed only when
 # AGROTECH_DATABASE_URL is set; unset it and the service uses local SQLite.
 postgres = [
