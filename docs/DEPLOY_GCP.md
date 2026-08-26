@@ -802,8 +802,11 @@ run, `min-instances=0`. Region `asia-south1` (Mumbai, a Tier-1 Cloud Run
 region). USD, list price, no committed-use discount.
 
 Cloud Run Tier-1 rates used below: **$0.000024 per vCPU-second**, **$0.0000025
-per GiB-second**, **$0.40 per million requests**, with a monthly free tier of
-180,000 vCPU-s / 360,000 GiB-s / 2M requests.
+per GiB-second**, **$0.40 per million requests**, with a monthly free tier of roughly
+180,000 vCPU-s / 360,000 GiB-s / 2M requests. (Published sources disagree on the
+exact vCPU/GiB split — verify on the pricing page. It does not change the total
+below, because at pilot volume both Cloud Run services land inside the free tier
+either way.)
 
 | Component | Sizing | Monthly usage | Cost |
 |---|---|---|---|
@@ -825,6 +828,13 @@ per GiB-second**, **$0.40 per million requests**, with a monthly free tier of
 | **Total** | | | **~$37/month** |
 
 **Cloud SQL is 85% of the bill.** Everything else rounds to noise at pilot scale.
+It is the only always-on component: Cloud Run scales to zero, Cloud SQL cannot.
+Note that shared-core tiers (`db-f1-micro`, `db-g1-small`) carry **no SLA**.
+
+> **Cheapest viable option:** `AGROTECH_DATABASE_URL` accepts *any* PostgreSQL
+> connection string. Pointing it at a free managed Postgres (Neon, Supabase)
+> removes the Cloud SQL line entirely and takes a pilot to roughly **$0–2/month**,
+> at the cost of running the database outside your GCP project.
 
 ### Levers
 
@@ -834,7 +844,7 @@ per GiB-second**, **$0.40 per million requests**, with a monthly free tier of
 | `SQL_AVAILABILITY=REGIONAL` | +$32/mo; automatic failover |
 | `SQL_STORAGE_TYPE=PD_SSD` | +$1/mo at 10 GB; worth it if queries get analytical |
 | `API_MIN_INSTANCES=1` | **+$50–60/mo** (2 vCPU × 2.6M s × $0.000018 idle rate + memory). Removes the ~25 s cold start caused by downloading and unpickling 170 MB of models. The honest trade: pay it, or accept that the first farmer of the morning waits. |
-| Cloud SQL 1-year CUD | −25% on the instance |
+| Cloud SQL 1-year CUD | −25%, but **only on dedicated-core tiers**. `db-f1-micro` / `db-g1-small` are shared-core and are NOT CUD-eligible. |
 
 ### Scaling to ~10,000 farmers
 
