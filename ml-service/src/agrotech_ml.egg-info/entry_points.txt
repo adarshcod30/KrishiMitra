@@ -1,3 +1,0 @@
-[console_scripts]
-agrotech-api = agrotech_ml.api:main
-agrotech-train = agrotech_ml.services.train:main

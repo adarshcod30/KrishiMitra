@@ -72,24 +72,48 @@ class AppSettings(BaseSettings):
     allowed_upload_types: str = "image/jpeg,image/png,image/webp,application/pdf"
     request_timeout_seconds: int = 20
 
-    # Cloud persistence. Every one of these is optional: when they are unset the
-    # service runs entirely on the local filesystem + SQLite (development mode).
+    # Managed persistence. Every one of these is optional: when they are unset
+    # the service runs entirely on the local filesystem + SQLite (development
+    # mode). Model artifacts are always read from ``artifacts_dir``; they are
+    # baked into the container image and never downloaded at startup.
     database_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("AGROTECH_DATABASE_URL", "DATABASE_URL"),
     )
-    models_gcs_uri: str | None = Field(
+
+    # Optional S3-compatible uploads (Cloudflare R2, Supabase Storage,
+    # Backblaze B2, MinIO, AWS S3). Leave the four required ones unset to keep
+    # storing uploads on local disk.
+    s3_endpoint_url: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("AGROTECH_MODELS_GCS_URI", "MODELS_GCS_URI"),
+        validation_alias=AliasChoices("AGROTECH_S3_ENDPOINT_URL", "S3_ENDPOINT_URL"),
     )
-    uploads_gcs_bucket: str | None = Field(
+    s3_bucket: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("AGROTECH_UPLOADS_GCS_BUCKET", "UPLOADS_GCS_BUCKET"),
+        validation_alias=AliasChoices("AGROTECH_S3_BUCKET", "S3_BUCKET"),
     )
-    google_cloud_project: str | None = Field(
+    s3_access_key_id: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("GOOGLE_CLOUD_PROJECT", "AGROTECH_GOOGLE_CLOUD_PROJECT"),
+        validation_alias=AliasChoices("AGROTECH_S3_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"),
     )
+    s3_secret_access_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AGROTECH_S3_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"),
+    )
+    # Only needed when the bucket is served through a public/CDN hostname; when
+    # empty, downloads are handed out as short-lived presigned URLs instead.
+    s3_public_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AGROTECH_S3_PUBLIC_BASE_URL", "S3_PUBLIC_BASE_URL"),
+    )
+    # SigV4 needs *a* region. "auto" is what R2/B2/MinIO expect; set the real
+    # region only when the endpoint is AWS S3 itself.
+    s3_region: str = Field(
+        default="auto",
+        validation_alias=AliasChoices("AGROTECH_S3_REGION", "S3_REGION"),
+    )
+    s3_uploads_prefix: str = "uploads"
+    s3_url_expiry_seconds: int = 3600
 
     sarvam_api_key: str | None = Field(
         default=None,
@@ -152,8 +176,19 @@ class AppSettings(BaseSettings):
         return bool(self.database_url and self.database_url.strip())
 
     @property
-    def uploads_to_gcs(self) -> bool:
-        return bool(self.uploads_gcs_bucket and self.uploads_gcs_bucket.strip())
+    def uploads_to_s3(self) -> bool:
+        """True only when every credential the S3 client needs is present.
+
+        A partial configuration silently falls back to local disk rather than
+        failing uploads, which keeps the zero-config path unbreakable.
+        """
+        required = (
+            self.s3_endpoint_url,
+            self.s3_bucket,
+            self.s3_access_key_id,
+            self.s3_secret_access_key,
+        )
+        return all(bool(value and value.strip()) for value in required)
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -178,10 +213,9 @@ def get_settings() -> AppSettings:
     ensure_directory(settings.artifacts_dir)
     ensure_directory(settings.uploads_dir)
 
-    from agrotech_ml.cloud.models_sync import sync_models
-
-    sync_models(settings)
-
+    # No model download happens here. Artifacts are baked into the image (or
+    # trained locally) and read straight from AGROTECH_ARTIFACTS_DIR, so
+    # startup never depends on a network round-trip to object storage.
     from agrotech_ml.db.storage import init_db
 
     init_db(settings)

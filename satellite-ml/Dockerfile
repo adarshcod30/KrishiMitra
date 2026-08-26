@@ -1,23 +1,34 @@
 # =============================================================================
-# KrishiMitra-RS satellite pipeline  ->  Google Cloud Run JOB
+# KrishiMitra-RS satellite pipeline — portable BATCH container
 #
-# This is a *batch* container, not a service: it runs the season end-to-end,
+# This is a run-to-completion job, not a service: it runs the season end to end,
 # writes maps/figures/tables under /app/outputs and exits. There is no HTTP
-# listener and no $PORT — Cloud Run Jobs do not expect one.
+# listener and no $PORT, so it runs anywhere a container runs — a laptop, CI, a
+# cron host, or any batch/job runner — with no host-specific assumptions.
 #
 #   docker build -t krishimitra-satellite satellite-ml/
-#   docker run --rm krishimitra-satellite                       # simulated pilot
+#   docker run --rm krishimitra-satellite                        # simulated pilot
 #   docker run --rm -v "$PWD/outputs:/app/outputs" \
 #              -e EE_SERVICE_ACCOUNT_JSON="$(cat key.json)" \
-#              -e EE_PROJECT=my-gcp-project \
-#              krishimitra-satellite --source gee               # real Sentinel-1/2
+#              -e EE_PROJECT=my-earthengine-project \
+#              krishimitra-satellite --source gee                # real Sentinel-1/2
 #
-# Environment (all optional; the default run needs none):
+# Or through the repo's compose file, which mounts a named volume for outputs:
+#   docker compose --profile satellite run --rm satellite
+#
+# Environment (all optional; the default simulated run needs none):
 #   EE_SERVICE_ACCOUNT_JSON  Earth Engine service-account key — raw JSON or a
-#                            path to a mounted key file (Secret Manager).
-#   EE_PROJECT               Earth Engine / GCP project to bill; falls back to
+#                            path to a mounted key file.
+#   EE_PROJECT               Earth Engine project to bill; falls back to
 #                            GOOGLE_CLOUD_PROJECT, then to the key's project_id.
-#   GOOGLE_CLOUD_PROJECT     GCP project id.
+#
+# Earth Engine is the satellite DATA SOURCE (free for research and
+# non-commercial use), not deployment infrastructure. It is entirely optional:
+# without it the pipeline runs `--source simulate` offline, and the package
+# imports fine with earthengine-api absent.
+#
+# Results are written to /app/outputs. Mount a host directory or a volume there;
+# nothing is uploaded anywhere by this image.
 #
 # Python 3.12 rather than 3.13: the geospatial extras (geopandas / pyogrio /
 # rasterio) publish 3.12 binary wheels far more reliably, and building GDAL
@@ -74,8 +85,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends libgomp1 \
  && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --system --gid 10001 app \
- && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app app
+# Non-root, UID 1000 — the id most job runners and bind-mounted host directories
+# expect, so files written to a mounted outputs/ are owned by the calling user.
+RUN groupadd --gid 1000 app \
+ && useradd --uid 1000 --gid app --create-home --home-dir /home/app app
 
 COPY --from=builder /opt/venv /opt/venv
 
@@ -87,8 +100,8 @@ WORKDIR /app
 COPY --chown=app:app config ./config
 COPY --chown=app:app scripts ./scripts
 
-# krishimitra_rs.config writes outputs under the CWD for an installed package,
-# so /app/outputs is the artifact directory — mount it or sync it to GCS.
+# krishimitra_rs writes outputs under the CWD for an installed package, so
+# /app/outputs is the artifact directory — mount a host path or volume there.
 RUN mkdir -p /app/outputs /app/data/processed && chown -R app:app /app
 
 ENV PATH="/opt/venv/bin:${PATH}" \
@@ -98,8 +111,8 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 
 USER app
 
-# Console script from [project.scripts]; arguments are forwarded, so a Cloud Run
-# Job can override with `--args=--source,gee`.
+# Console script from [project.scripts]; arguments are forwarded, so any runner
+# can override them (e.g. `docker run ... krishimitra-satellite --source gee`).
 ENTRYPOINT ["krishimitra-rs"]
 
 # Default: the fully offline simulated pilot, so `docker run` with no arguments

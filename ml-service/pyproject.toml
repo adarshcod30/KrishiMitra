@@ -26,11 +26,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Only needed when running against Cloud SQL / Cloud Storage. Local development
-# (SQLite + local directories) works without installing these.
+# Managed Postgres (Neon, Supabase, any Postgres URL). Needed only when
+# AGROTECH_DATABASE_URL is set; unset it and the service uses local SQLite.
+postgres = [
+  "psycopg[binary]>=3.2,<4"
+]
+# Optional S3-compatible uploads (Cloudflare R2, Supabase Storage, Backblaze
+# B2, MinIO, AWS S3). Needed only when the AGROTECH_S3_* variables are set;
+# with them unset, uploads go to the local filesystem.
+s3 = [
+  "boto3>=1.34,<2"
+]
+# Convenience aggregate used by the container build (PIP_EXTRAS=cloud).
+# Local development (SQLite + local directories) needs none of this.
 cloud = [
   "psycopg[binary]>=3.2,<4",
-  "google-cloud-storage>=2.18,<4"
+  "boto3>=1.34,<2"
 ]
 
 [project.scripts]

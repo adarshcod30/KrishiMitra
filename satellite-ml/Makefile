@@ -10,7 +10,7 @@ help:
 	@echo "make dataset    - build & cache the pilot ARD cube to data/processed/"
 	@echo "make dashboard  - launch the Streamlit dashboard"
 	@echo "make test       - run the pytest suite"
-	@echo "make docker     - build the Cloud Run Job image"
+	@echo "make docker     - build the batch container image"
 	@echo "make sync-config- copy config/pilot_area.yaml over the packaged default"
 	@echo "make clean      - remove generated outputs"
 

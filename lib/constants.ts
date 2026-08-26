@@ -5,11 +5,15 @@ import type { IrrigationRequest, LanguageCode, SoilFeatureKey, SoilPayload } fro
  * Same-origin proxy route (app/api/ml/[...path]/route.ts).
  *
  * `NEXT_PUBLIC_*` values are inlined into the client bundle at BUILD time, so a
- * baked-in absolute URL cannot be changed on a deployed Cloud Run revision — and
+ * baked-in absolute URL cannot be changed on an already-built deployment — and
  * a baked-in localhost URL would make every visitor's browser call their own
  * machine. When no public URL is configured we therefore talk to this relative
  * path instead; the route handler forwards to the SERVER-side `ML_API_URL`,
- * which is a plain runtime env var and needs no rebuild to change.
+ * which is a plain runtime env var (a Vercel Environment Variable in
+ * production) and needs no rebuild to change.
+ *
+ * Keeping the browser on a relative path also means no CORS preflight against
+ * the Hugging Face Space, and no API hostname in the shipped JavaScript.
  */
 export const ML_API_PROXY_PATH = "/api/ml";
 

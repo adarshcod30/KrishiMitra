@@ -71,8 +71,8 @@ class UploadTooLarge(Exception):
 class UploadStorageUnavailable(Exception):
     """The configured object-storage backend could not accept the file.
 
-    Raised instead of letting a missing ``google-cloud-storage`` install or a
-    Cloud Storage outage surface as an opaque HTTP 500.
+    Raised instead of letting a missing ``boto3`` install or an object-storage
+    outage surface as an opaque HTTP 500.
     """
 
 
@@ -139,10 +139,15 @@ def build_stored_name(content_type: str) -> str:
     return f"{uuid4()}{extension_for(content_type)}"
 
 
-def gcs_object_name(settings: AppSettings, stored_name: str) -> str:
-    from agrotech_ml.cloud.storage_gcs import build_object_name
+def content_disposition_for(stored_name: str) -> str:
+    """Attachment disposition applied both on disk and on stored S3 objects."""
+    return f'attachment; filename="{stored_name}"'
 
-    return build_object_name("uploads", stored_name)
+
+def s3_object_name(settings: AppSettings, stored_name: str) -> str:
+    from agrotech_ml.cloud.storage_s3 import build_object_name
+
+    return build_object_name(settings.s3_uploads_prefix, stored_name)
 
 
 async def store_upload(
@@ -151,7 +156,7 @@ async def store_upload(
 ) -> StoredUpload:
     """Validate, stream and persist an upload.
 
-    Writes to ``AGROTECH_UPLOADS_GCS_BUCKET`` when it is configured, and to
+    Writes to the ``AGROTECH_S3_*`` bucket when one is fully configured, and to
     ``settings.uploads_dir`` otherwise. Raises :class:`UnsupportedUploadType`
     or :class:`UploadTooLarge` before any bytes are committed.
     """
@@ -160,22 +165,22 @@ async def store_upload(
     stored_name = build_stored_name(content_type)
     original_filename = sanitize_original_filename(getattr(upload, "filename", None))
 
-    if settings.uploads_to_gcs:
+    if settings.uploads_to_s3:
         payload = await _read_limited(upload, limit)
-        object_name = gcs_object_name(settings, stored_name)
+        object_name = s3_object_name(settings, stored_name)
         try:
-            from agrotech_ml.cloud.storage_gcs import upload_bytes
+            from agrotech_ml.cloud.storage_s3 import upload_bytes
 
             location = upload_bytes(
-                settings.uploads_gcs_bucket or "",
+                settings,
                 object_name,
                 payload,
                 content_type=content_type,
-                project=settings.google_cloud_project,
+                content_disposition=content_disposition_for(stored_name),
             )
         except Exception as exc:  # noqa: BLE001 - reported as 503, never a bare 500
             raise UploadStorageUnavailable(
-                f"Could not store the upload in gs://{settings.uploads_gcs_bucket}: {exc}"
+                f"Could not store the upload in bucket {settings.s3_bucket!r}: {exc}"
             ) from exc
         return StoredUpload(
             stored_name=stored_name,
@@ -233,9 +238,10 @@ __all__ = [
     "build_stored_name",
     "content_type_for_stored_name",
     "extension_for",
-    "gcs_object_name",
+    "content_disposition_for",
     "is_valid_stored_name",
     "normalize_content_type",
+    "s3_object_name",
     "sanitize_original_filename",
     "store_upload",
     "validate_content_type",

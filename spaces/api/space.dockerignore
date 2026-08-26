@@ -1,0 +1,38 @@
+# Copied to <space-clone>/.dockerignore by spaces/api/sync.sh.
+#
+# The Space repo is already a curated subset, so this is only about keeping
+# caches, local state and credentials out of the build context — and out of the
+# image layers, which are readable by anyone who can pull the Space.
+
+.git
+.gitattributes
+DEPLOY.md
+
+# Python caches / virtualenvs
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/*.egg-info
+**/.venv
+**/venv
+
+# Runtime state. agrotech.db holds farmer PII; uploads are user-submitted.
+# Neither may ever be baked into a layer.
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.sqlite
+**/*.sqlite3
+ml-service/uploads
+
+# Secrets arrive as Space secrets at runtime, never from the build context.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/credentials.json
+
+**/.DS_Store

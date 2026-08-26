@@ -1,4 +1,4 @@
-"""Dual-mode database engine: local SQLite file, or Cloud SQL PostgreSQL.
+"""Dual-mode database engine: local SQLite file, or managed PostgreSQL.
 
 The rest of the codebase talks to a single small surface (:func:`connect`
 returning a :class:`DatabaseConnection`) so the SQL differences between the two
@@ -11,7 +11,9 @@ backends live in exactly one place:
 * running a multi-statement schema script
 
 Selection is driven purely by ``AGROTECH_DATABASE_URL``: when it is unset the
-behaviour is byte-for-byte the previous SQLite behaviour.
+behaviour is byte-for-byte the previous SQLite behaviour. Any Postgres URL works
+(Neon, Supabase, a local container); TLS parameters such as ``?sslmode=require``
+are preserved verbatim and handled by libpq.
 """
 
 from __future__ import annotations
@@ -32,7 +34,12 @@ _TYPE_TOKEN_RE = re.compile(r"\{([A-Z][A-Z0-9_]*)\}")
 
 
 def normalize_dsn(database_url: str) -> str:
-    """Accept the common URL spellings and hand libpq something it understands."""
+    """Accept the common URL spellings and hand libpq something it understands.
+
+    Only the scheme is rewritten, so query parameters survive untouched. That
+    matters for Neon, whose connection strings carry ``?sslmode=require`` (and
+    often ``&channel_binding=require``) which libpq must still see.
+    """
     dsn = database_url.strip()
     scheme, separator, rest = dsn.partition("://")
     if not separator:
@@ -202,7 +209,7 @@ def _connect_postgres(settings: AppSettings) -> DatabaseConnection:
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on install extras
         raise RuntimeError(
             "AGROTECH_DATABASE_URL is set but psycopg is not installed. "
-            "Install the cloud extra: pip install 'agrotech-ml[cloud]'"
+            "Install the postgres extra: pip install 'agrotech-ml[postgres]'"
         ) from exc
 
     assert settings.database_url is not None

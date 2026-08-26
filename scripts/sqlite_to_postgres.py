@@ -1,27 +1,39 @@
 #!/usr/bin/env python3
-"""Copy KrishiMitra's local SQLite data into Cloud SQL for PostgreSQL.
+"""Copy KrishiMitra's local SQLite data into a PostgreSQL database.
 
-This moves DATA only. The PostgreSQL schema must already exist — create it by
-running the migration job (``deploy/30-deploy.sh`` does this automatically, or
-``gcloud run jobs execute krishimitra-migrate``) before running this script.
-Deliberately so: keeping one authority for the schema means this tool cannot
-drift away from what the application expects.
+Written for the move to Neon (serverless Postgres), but there is nothing
+Neon-specific in it: any ``postgresql://`` URL works — Neon, a docker-compose
+Postgres, a managed instance, anything.
 
-Typical use, from a workstation, through the Cloud SQL Auth Proxy::
+This moves DATA only. The PostgreSQL schema must already exist. The API creates
+it itself (``CREATE TABLE IF NOT EXISTS`` in ``agrotech_ml.db.storage.init_db``),
+so the schema is in place the first time the service starts with
+``AGROTECH_DATABASE_URL`` pointing at the target. Keeping one authority for the
+schema means this tool cannot drift away from what the application expects.
 
-    # 1. terminal A — open a local tunnel to Cloud SQL
-    cloud-sql-proxy PROJECT:asia-south1:krishimitra-pg --port 5433
+Typical use::
 
-    # 2. terminal B — copy the data
-    export PGPASSWORD="$(gcloud secrets versions access latest \\
-        --secret=krishimitra-db-password --project=PROJECT)"
-    python deploy/sqlite_to_postgres.py \\
-        --sqlite /tmp/agrotech_artifacts/agrotech.db \\
-        --database-url "postgresql://agrotech:$PGPASSWORD@127.0.0.1:5433/agrotech" \\
-        --dry-run          # inspect the plan first
-    python deploy/sqlite_to_postgres.py \\
-        --sqlite /tmp/agrotech_artifacts/agrotech.db \\
-        --database-url "postgresql://agrotech:$PGPASSWORD@127.0.0.1:5433/agrotech"
+    # 0. let the API create the schema once (either is enough)
+    #      - start the deployed API with AGROTECH_DATABASE_URL set, or
+    #      - AGROTECH_DATABASE_URL=... python -c "
+    #            from agrotech_ml.core.settings import get_settings; get_settings()"
+
+    # 1. inspect the plan — writes nothing
+    python scripts/sqlite_to_postgres.py \\
+        --sqlite ml-service/artifacts/agrotech.db \\
+        --database-url "postgresql://user:pass@ep-xxx.aws.neon.tech/agrotech?sslmode=require" \\
+        --dry-run
+
+    # 2. copy
+    python scripts/sqlite_to_postgres.py \\
+        --sqlite ml-service/artifacts/agrotech.db \\
+        --database-url "postgresql://user:pass@ep-xxx.aws.neon.tech/agrotech?sslmode=require"
+
+Keep the password out of your shell history and out of ``ps`` by exporting the
+URL instead — ``--database-url`` defaults to ``$AGROTECH_DATABASE_URL``::
+
+    export AGROTECH_DATABASE_URL="postgresql://...?sslmode=require"
+    python scripts/sqlite_to_postgres.py --sqlite ml-service/artifacts/agrotech.db
 
 Safety properties:
 
@@ -34,9 +46,11 @@ Safety properties:
   a schema that has moved on in PostgreSQL does not abort the migration.
 * **One transaction per table.** A failure rolls that table back rather than
   leaving a half-loaded table behind.
+* **Read-only source.** The SQLite file is opened ``mode=ro``.
 
-Requires ``psycopg`` (v3) or ``psycopg2``; the ml-service ``cloud`` extra
-provides one of them.
+Requires ``psycopg`` (v3) or ``psycopg2``::
+
+    pip install "psycopg[binary]"
 """
 from __future__ import annotations
 
@@ -46,9 +60,9 @@ import sqlite3
 import sys
 from typing import Any, Iterable
 
-# Parent-before-child, so foreign keys resolve without disabling triggers
-# (Cloud SQL does not hand out real superuser, so `SET session_replication_role`
-# is not available to the application user).
+# Parent-before-child, so foreign keys resolve without disabling triggers:
+# most managed Postgres (Neon included) does not hand out real superuser, so
+# `SET session_replication_role = replica` is not available to us.
 PREFERRED_ORDER = [
     "users",
     "farms",
@@ -77,7 +91,7 @@ def connect_postgres(database_url: str):
         raise SystemExit(
             "neither psycopg (v3) nor psycopg2 is installed.\n"
             "  pip install 'psycopg[binary]'\n"
-            "or run this inside the API image, which ships the cloud extra."
+            "or run this inside the API image, which already ships a driver."
         ) from exc
 
 
@@ -126,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--sqlite",
-        default="/tmp/agrotech_artifacts/agrotech.db",
+        default="ml-service/artifacts/agrotech.db",
         help="path to the SQLite database (default: %(default)s)",
     )
     parser.add_argument(

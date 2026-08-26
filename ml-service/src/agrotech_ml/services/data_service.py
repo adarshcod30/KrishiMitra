@@ -1072,7 +1072,7 @@ async def summary(settings: AppSettings) -> DashboardSummary:
     listed_tools = len(tools) or len(RENTAL_TOOL_CATALOG)
 
     # Keep the DB round-trip off the event loop too: it is a local SQLite
-    # COUNT in development but a network call against Cloud SQL in production.
+    # COUNT in development but a network call against managed Postgres in production.
     return await asyncio.to_thread(
         storage_dashboard_summary,
         settings,

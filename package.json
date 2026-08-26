@@ -15,7 +15,7 @@
     "train:ml": "cd ml-service && ./.venv/bin/python -m agrotech_ml.services.train"
   },
   "engines": {
-    "node": ">=20.11.0"
+    "node": "22.x"
   },
   "dependencies": {
     "clsx": "2.1.1",

@@ -101,9 +101,10 @@ from agrotech_ml.services.upload_service import (
     UnsupportedUploadType,
     UploadStorageUnavailable,
     UploadTooLarge,
+    content_disposition_for,
     content_type_for_stored_name,
-    gcs_object_name,
     is_valid_stored_name,
+    s3_object_name,
     store_upload,
 )
 
@@ -119,18 +120,9 @@ Auth = Depends(require_auth)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Model artifacts come from the image or from AGROTECH_MODELS_GCS_URI.
-    # Training is never triggered here: it costs ~35 s of CPU and would turn
-    # every cold start into a Cloud Run startup-probe failure.
-    from agrotech_ml.cloud.models_sync import sync_models
-
-    try:
-        synced = sync_models(settings)
-        if synced:
-            logger.info("Startup synced %d model artifact(s) from GCS", len(synced))
-    except Exception as exc:  # noqa: BLE001 - never block boot on object storage
-        logger.warning("Startup model sync failed: %s", exc)
-
+    # Model artifacts are baked into the image under AGROTECH_ARTIFACTS_DIR.
+    # Nothing is downloaded and nothing is trained here: training costs ~35 s of
+    # CPU and would turn every cold start into a startup-probe failure.
     missing = missing_artifacts(settings)
     if missing:
         logger.error(artifacts_missing_message(settings, missing))
@@ -540,17 +532,19 @@ def download_upload(stored_name: str, auth: AuthContext = Auth) -> Response:
         "Cache-Control": "private, no-store",
     }
 
-    if settings.uploads_to_gcs:
-        from agrotech_ml.cloud.storage_gcs import signed_url
+    if settings.uploads_to_s3:
+        from agrotech_ml.cloud.storage_s3 import download_url
 
         try:
-            url = signed_url(
-                settings.uploads_gcs_bucket or "",
-                gcs_object_name(settings, stored_name),
-                project=settings.google_cloud_project,
+            url = download_url(
+                settings,
+                s3_object_name(settings, stored_name),
+                expires_seconds=settings.s3_url_expiry_seconds,
+                content_type=media_type or OCTET_STREAM,
+                content_disposition=content_disposition_for(stored_name),
             )
         except Exception as exc:  # noqa: BLE001
-            logger.error("Signed URL generation failed for %s: %s", stored_name, exc)
+            logger.error("Download URL generation failed for %s: %s", stored_name, exc)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Object storage unavailable: {exc}",
@@ -603,7 +597,8 @@ def retrain_status(auth: AuthContext = Auth) -> RetrainStatus:
 def main() -> None:
     import uvicorn
 
-    # Cloud Run injects $PORT and routes to 0.0.0.0 only.
+    # The host injects $PORT (Hugging Face Spaces uses 7860); default 8080.
+    # Bind 0.0.0.0: a container-internal 127.0.0.1 listener is unreachable.
     port = int(os.environ.get("PORT") or settings.port or 8080)
     uvicorn.run("agrotech_ml.api:app", host="0.0.0.0", port=port, reload=False)
 

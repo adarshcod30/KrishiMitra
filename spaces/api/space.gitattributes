@@ -1,0 +1,18 @@
+# Copied to <space-clone>/.gitattributes by spaces/api/sync.sh.
+#
+# Model artifacts are ~170 MB in total and MUST go through git-lfs: the Hub
+# rejects a plain-git file over 10 MB, and a Space repo without these rules
+# fails the push with "this exceeds the maximum file size" only AFTER the whole
+# upload, which is a slow way to learn about it.
+*.joblib   filter=lfs diff=lfs merge=lfs -text
+*.pkl      filter=lfs diff=lfs merge=lfs -text
+*.h5       filter=lfs diff=lfs merge=lfs -text
+*.onnx     filter=lfs diff=lfs merge=lfs -text
+*.pt       filter=lfs diff=lfs merge=lfs -text
+*.bin      filter=lfs diff=lfs merge=lfs -text
+*.npy      filter=lfs diff=lfs merge=lfs -text
+*.parquet  filter=lfs diff=lfs merge=lfs -text
+
+# Line endings: keep the shipped shell/py files LF whatever the pushing host is.
+*.sh   text eol=lf
+*.py   text eol=lf

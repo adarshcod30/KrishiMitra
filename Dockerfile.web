@@ -1,22 +1,36 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# KrishiMitra Next.js frontend  ->  Google Cloud Run
+# KrishiMitra Next.js frontend — LOCAL container image
 #
 #   docker build -f Dockerfile.web -t krishimitra-web .
-#   docker run --rm -p 3000:3000 -e PORT=3000 -e ML_API_URL=http://host.docker.internal:8080 krishimitra-web
+#   docker run --rm -p 3000:3000 -e ML_API_URL=http://host.docker.internal:7860 krishimitra-web
 #
-# Requires `output: "standalone"` in next.config.ts. The builder stage asserts
-# this explicitly rather than failing later with an opaque "no such file" on the
-# COPY, because the two failures look nothing alike in a Cloud Build log.
+# WHY THIS FILE STILL EXISTS
+# --------------------------
+# Vercel does NOT need it. Vercel builds Next.js natively with its own adapter;
+# handing it a Dockerfile would be slower and would bypass every framework
+# integration. Nothing in the Vercel deployment path reads this file.
+#
+# It is kept for exactly one reason: `docker compose up` must bring the whole
+# stack (postgres + api + web) up on a laptop with no cloud account at all, and
+# that needs a runnable image of the frontend. It is also the closest thing to a
+# self-hosting reference for anyone who wants to run KrishiMitra on their own
+# box instead of on Vercel.
+#
+# It depends on `output: "standalone"`, which next.config.ts emits everywhere
+# EXCEPT on Vercel (which sets VERCEL=1). DOCKER_BUILD=1 below forces it on
+# unconditionally, so this build is correct even when run from inside a Vercel
+# build environment. The builder stage asserts the directory exists rather than
+# failing later with an opaque "no such file" on the COPY.
 #
 # Two ways the browser reaches the API, and they are not interchangeable:
 #   * NEXT_PUBLIC_ML_API_URL is a BUILD ARG. Next.js inlines NEXT_PUBLIC_* into
-#     the client bundle at build time, so it cannot be changed by a Cloud Run
-#     env var afterwards. It defaults to the same-origin proxy path "/api/ml",
+#     the client bundle at build time, so it cannot be changed by a runtime env
+#     var afterwards. It defaults to the same-origin proxy path "/api/ml",
 #     which keeps the API host out of the shipped JavaScript entirely.
 #   * ML_API_URL is a RUNTIME env var read only on the server, by the /api/ml
-#     route handler that proxies to Cloud Run. That is the one to point at the
-#     API service URL at deploy time.
+#     route handler. That is the one to point at the API (http://api:8080 under
+#     compose, the Space URL in production).
 # =============================================================================
 
 ARG NODE_VERSION=22
@@ -52,12 +66,16 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Baked into the client bundle. "/api/ml" = same-origin proxy (recommended):
-# no CORS, no API hostname leaked, and the API can stay private behind IAM.
-# Override with an absolute https:// URL only if you deliberately want the
-# browser to call Cloud Run directly (then AGROTECH_CORS_ORIGINS must list the
-# frontend origin).
+# no CORS, no API hostname leaked, and the backend can be repointed by changing
+# one runtime env var. Override with an absolute https:// URL only if you
+# deliberately want the browser to call the API directly (then
+# AGROTECH_CORS_ORIGINS on the API must list this frontend's origin).
 ARG NEXT_PUBLIC_ML_API_URL=/api/ml
 ENV NEXT_PUBLIC_ML_API_URL=${NEXT_PUBLIC_ML_API_URL}
+
+# Forces next.config.ts to emit .next/standalone even if VERCEL=1 is present in
+# the build environment. Without standalone output, stage 3 has nothing to copy.
+ENV DOCKER_BUILD=1
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
@@ -67,8 +85,9 @@ RUN npm run build
 # Fail fast and legibly if standalone output was not produced.
 RUN test -d .next/standalone \
  || ( echo "ERROR: .next/standalone is missing." >&2; \
-      echo "Set  output: 'standalone'  in next.config.ts — Cloud Run needs the" >&2; \
-      echo "self-contained server bundle, not a full node_modules tree." >&2; \
+      echo "next.config.ts must emit  output: 'standalone'  for this image." >&2; \
+      echo "It skips standalone when VERCEL=1; DOCKER_BUILD=1 (set above)" >&2; \
+      echo "is what forces it back on. Check next.config.ts." >&2; \
       exit 1 )
 
 # ---------------------------------------------------------------------------
@@ -85,9 +104,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Cloud Run injects PORT. HOSTNAME=0.0.0.0 is mandatory: the standalone
-# server.js binds HOSTNAME and defaults to localhost, which makes the container
-# look dead to Cloud Run's startup probe.
+# HOSTNAME=0.0.0.0 is mandatory: the standalone server.js binds HOSTNAME and
+# defaults to localhost, which makes the container look dead from outside.
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
@@ -103,10 +121,9 @@ USER node
 EXPOSE 3000
 
 # Hits the app's own /api/health route handler, so this exercises the Next.js
-# server rather than just TCP accept. Cloud Run ignores HEALTHCHECK and uses
-# the probes configured in deploy/30-deploy.sh.
+# server rather than just TCP accept.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
-# Exec form: node is PID 1 and gets SIGTERM directly from Cloud Run.
+# Exec form: node is PID 1 and gets SIGTERM directly.
 CMD ["node", "server.js"]

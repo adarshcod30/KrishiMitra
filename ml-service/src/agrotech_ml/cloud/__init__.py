@@ -1,26 +1,30 @@
-"""Optional Google Cloud integrations.
+"""Optional S3-compatible object storage integration.
 
-Nothing in this package imports ``google-cloud-storage`` at module scope, so the
-service keeps working with the cloud extra uninstalled. Every helper is a no-op
-(or raises a clear, actionable error) when the corresponding setting is unset.
+Nothing in this package imports ``boto3`` at module scope, so the service keeps
+working with the ``s3`` extra uninstalled. Every helper raises a clear,
+actionable error when it is called without a complete ``AGROTECH_S3_*``
+configuration; with those settings unset the upload path never gets here and
+files are written to the local filesystem instead.
 """
 
-from agrotech_ml.cloud.models_sync import sync_models
-from agrotech_ml.cloud.storage_gcs import (
-    download_prefix,
-    is_gcs_available,
-    parse_gcs_uri,
+from agrotech_ml.cloud.storage_s3 import (
+    S3NotConfigured,
+    build_object_name,
+    download_url,
+    is_s3_available,
+    presigned_url,
     public_url,
-    signed_url,
+    s3_uri,
     upload_bytes,
 )
 
 __all__ = [
-    "download_prefix",
-    "is_gcs_available",
-    "parse_gcs_uri",
+    "S3NotConfigured",
+    "build_object_name",
+    "download_url",
+    "is_s3_available",
+    "presigned_url",
     "public_url",
-    "signed_url",
-    "sync_models",
+    "s3_uri",
     "upload_bytes",
 ]

@@ -1,0 +1,89 @@
+# =============================================================================
+# Files NOT uploaded to Vercel.
+#
+# Vercel only builds the Next.js frontend (app/, components/, contexts/, lib/,
+# public/ + the root config files). Everything else in this repo belongs to the
+# API or the satellite pipeline and is either large, secret, or both.
+#
+# Size matters: ml-service/ alone is ~750 MB on a working checkout (venv,
+# datasets, trained .joblib artifacts, user uploads). Shipping it would blow
+# past the deployment upload limit and slow every build for zero benefit.
+#
+# Same exclude-list strategy as .dockerignore: anything not listed here IS
+# uploaded, so a newly added frontend directory works without touching this file.
+#
+# NOTE: .vercelignore is applied when a deployment is created from the `vercel`
+# CLI. Git-integration deployments clone the whole repository instead, so for
+# those the build simply never reads these paths — the Next.js build only
+# traces from app/ and its imports either way.
+# =============================================================================
+
+# --- Backend / ML, none of which the frontend build imports ------------------
+ml-service
+satellite-ml
+# Hugging Face Space build context (Dockerfile + api entrypoint).
+spaces
+
+# --- Container + deployment tooling ------------------------------------------
+Dockerfile.web
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+deploy
+
+# --- Docs ---------------------------------------------------------------------
+docs
+README.md
+*.md
+
+# --- Data files ---------------------------------------------------------------
+# Datasets and model artifacts. Belt-and-braces: the directories above already
+# cover the known ones, these catch stray copies at any depth.
+*.csv
+*.parquet
+*.joblib
+*.pkl
+*.h5
+*.onnx
+*.tif
+*.tiff
+*.geojson
+*.zip
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- Python -------------------------------------------------------------------
+# No Python is part of the frontend build; this also covers scripts/*.py.
+**/*.py
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+# --- Secrets ------------------------------------------------------------------
+# Env values come from the Vercel dashboard, never from an uploaded file.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*-service-account*.json
+*-sa-key*.json
+
+# --- Local build state / editor / OS ------------------------------------------
+.next
+out
+node_modules
+**/node_modules
+*.tsbuildinfo
+.git
+.claude
+.vscode
+.idea
+**/.DS_Store

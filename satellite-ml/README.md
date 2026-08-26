@@ -136,7 +136,7 @@ pip install streamlit
 streamlit run dashboard/app.py            # http://localhost:8501
 ```
 
-Batch container (Cloud Run Job):
+Batch container (runs on any container host):
 
 ```bash
 docker build -t krishimitra-satellite satellite-ml/
@@ -345,7 +345,7 @@ relative to the **current working directory** — site-packages is never pollute
   and mosaic the GeoTIFF outputs.
 - Swap RF/XGBoost for the LSTM/Temporal-CNN (`models/temporal_dl.py`, needs
   `torch`) when training data volume warrants it.
-- The [`Dockerfile`](Dockerfile) packages the pipeline as a **Cloud Run Job**
+- The [`Dockerfile`](Dockerfile) packages the pipeline as a **host-agnostic batch container**
   (batch, no HTTP listener); artifacts land in `/app/outputs`.
 
 ---
@@ -368,7 +368,7 @@ satellite-ml/
 ├── scripts/                         # run_pipeline.py · make_pilot_dataset.py
 ├── dashboard/app.py                 # Streamlit dashboard
 ├── notebooks/                       # end-to-end walkthrough
-├── Dockerfile                       # Cloud Run Job (batch) image
+├── Dockerfile                       # batch container image (any host)
 └── tests/                           # pytest suite (13 tests, ~12 s)
 ```
 

@@ -1,15 +1,19 @@
 # =============================================================================
-# Docker build-context exclusions for the two root images, Dockerfile.api and
-# Dockerfile.web, both built from the repository root.
+# Docker build-context exclusions for the two images built from the REPOSITORY
+# ROOT: spaces/api/Dockerfile (the API, same image the Hugging Face Space runs)
+# and Dockerfile.web (the local/self-hosted frontend).
 #
 # The satellite image is NOT built from here: it has its own Dockerfile and
-# .dockerignore under satellite-ml/, and deploy/40-satellite-job.sh builds it
-# with satellite-ml/ as the context. That whole tree is therefore excluded
-# below — neither root image reads a byte of it.
+# .dockerignore under satellite-ml/, and compose builds it with satellite-ml/ as
+# the context. That whole tree is therefore excluded below — neither root image
+# reads a byte of it.
+#
+# The Space repo assembled by spaces/api/sync.sh carries its own, narrower
+# .dockerignore (spaces/api/space.dockerignore); keep the two in agreement about
+# what must never enter an image layer.
 #
 # Strategy: exclude-list. Everything not listed here is shipped to the daemon,
 # so newly added source directories work without touching this file.
-# Keep this in sync with .gcloudignore.
 # =============================================================================
 
 # --- VCS / editor / OS -------------------------------------------------------
@@ -32,6 +36,7 @@ node_modules
 **/node_modules
 .next
 out
+.vercel
 *.tsbuildinfo
 npm-debug.log*
 yarn-error.log*
@@ -52,31 +57,32 @@ venv
 ml-service/agrotech
 ml-service/catboost_info
 
-# --- Runtime state that must never be baked into an image --------------------
-# ml-service/artifacts holds ~170 MB of trained .joblib models on a developer's
-# machine, and has been a symlink to /tmp on some checkouts. Either way it must
-# not enter the context: models are distributed via AGROTECH_MODELS_GCS_URI and
-# downloaded at startup. To bake them into the image instead, put the
-# .joblib/.json files in deploy/models/ (see that directory).
-ml-service/artifacts
-# User uploads (may contain personal data) and local SQLite databases.
-ml-service/uploads
+# --- Runtime state -----------------------------------------------------------
+# ml-service/artifacts is deliberately NOT excluded: the API image bakes the
+# trained models (~170 MB) so a cold-started container answers immediately
+# instead of re-training. A clean checkout has only .gitkeep there, and the
+# build still succeeds — the service trains on first boot instead.
+#
+# What must never enter a layer, from that directory or anywhere else:
+#   * agrotech.db — farmer PII
+#   * user uploads — user-submitted files
 **/*.db
 **/*.db-wal
 **/*.db-shm
 **/*.sqlite
 **/*.sqlite3
+ml-service/uploads
 
 # The satellite module builds from its own context (satellite-ml/Dockerfile with
 # satellite-ml/.dockerignore), so none of it belongs in the api/web context.
 satellite-ml
 
 # --- Secrets -----------------------------------------------------------------
-# Never bake credentials into a layer. Secrets arrive at runtime from Secret
-# Manager. Docker matches .dockerignore patterns against the FULL relative path,
-# so a bare `.env` would only cover the repo root — `**/` is required to also
-# catch ml-service/.env, which exists on dev machines and holds a real API key.
-# (.env.example files are deliberately kept — they are documentation.)
+# Never bake credentials into a layer. They arrive at runtime as Space secrets,
+# Vercel env vars or compose env. Docker matches .dockerignore patterns against
+# the FULL relative path, so a bare `.env` would only cover the repo root —
+# `**/` is required to also catch ml-service/.env, which exists on dev machines
+# and holds a real API key. (.env.example files are kept — they are docs.)
 **/.env
 **/.env.*
 !**/.env.example
@@ -86,13 +92,11 @@ satellite-ml
 **/*-sa-key*.json
 **/credentials.json
 
-# --- Infra / docs that no image needs ----------------------------------------
+# --- Docs / tooling that no image needs --------------------------------------
 docs
-deploy/terraform
-deploy/*.sh
-deploy/*.py
-deploy/lib
-deploy/models/README.md
+scripts/sqlite_to_postgres.py
 docker-compose.yml
 docker-compose.*.yml
 README.md
+spaces/api/DEPLOY.md
+spaces/api/sync.sh
