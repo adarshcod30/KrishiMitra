@@ -1,0 +1,20 @@
+# Core pipeline — everything runs on these (no geospatial system libs required).
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+scikit-learn>=1.3
+xgboost>=2.0
+matplotlib>=3.7
+pyyaml>=6.0
+
+# --- Optional extras (install as needed) -----------------------------------
+# Real satellite ingestion (Google Earth Engine):
+#   pip install earthengine-api geemap geopandas
+# Georeferenced GeoTIFF outputs:
+#   pip install rasterio shapely pyproj
+# Deep temporal models (LSTM / Temporal-CNN):
+#   pip install torch
+# Dashboard:
+#   pip install streamlit plotly pydeck
+# Faster GLCM texture:
+#   pip install scikit-image

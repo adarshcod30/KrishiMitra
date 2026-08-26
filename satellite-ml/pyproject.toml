@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krishimitra-rs"
+version = "0.1.0"
+description = "AI-driven crop-type mapping, phenology-aware moisture-stress detection and FAO-56 irrigation advisory from optical + SAR satellite data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "KrishiMitra" }]
+keywords = ["remote-sensing", "agriculture", "crop-classification", "sentinel", "sar", "irrigation", "fao-56"]
+
+# --- Core dependencies: the full pipeline (simulate -> features -> RF/XGBoost
+#     -> moisture stress -> FAO-56 advisory -> validation -> maps) runs on
+#     these alone. Everything below in [optional-dependencies] is additive. ---
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "scipy>=1.10",
+  "scikit-learn>=1.3",
+  "xgboost>=2.0",
+  "matplotlib>=3.7",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Real satellite ingestion from Google Earth Engine (Sentinel-1/2, MODIS, Landsat).
+gee = ["earthengine-api>=0.1.380", "geemap>=0.30", "geopandas>=0.14"]
+# GeoTIFF read/write for georeferenced map outputs. Pipeline falls back to
+# PNG + .npy when rasterio is absent.
+geo = ["rasterio>=1.3", "shapely>=2.0", "pyproj>=3.5"]
+# Deep temporal models (LSTM / Temporal-CNN). Optional; RF/XGBoost is the default.
+dl = ["torch>=2.1"]
+# Interactive dashboard.
+dashboard = ["streamlit>=1.30", "plotly>=5.18", "pydeck>=0.8"]
+# Faster GLCM texture (a pure-numpy fallback is built in).
+texture = ["scikit-image>=0.22"]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+all = [
+  "earthengine-api>=0.1.380", "geemap>=0.30", "geopandas>=0.14",
+  "rasterio>=1.3", "shapely>=2.0", "pyproj>=3.5",
+  "torch>=2.1", "streamlit>=1.30", "plotly>=5.18", "pydeck>=0.8",
+  "scikit-image>=0.22",
+]
+
+[project.scripts]
+krishimitra-rs = "krishimitra_rs.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

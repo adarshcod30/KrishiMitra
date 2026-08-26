@@ -1,0 +1,27 @@
+# Raw / large satellite downloads and intermediate rasters — never commit.
+data/raw/**
+data/interim/**
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+
+# Generated model artifacts and figures are reproducible from `run_pipeline`.
+outputs/models/*.joblib
+outputs/models/*.pt
+outputs/maps/*.tif
+outputs/maps/*.png
+outputs/figures/*.png
+outputs/tables/*.csv
+outputs/tables/*.json
+
+# Earth Engine / Google credentials — MUST NOT be committed.
+*.ee-credentials
+service-account*.json
+.ee/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
