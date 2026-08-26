@@ -53,6 +53,12 @@ const RETRY_AFTER_SECONDS = 15;
 /** Local dev default. Server-side only — never reaches the browser bundle. */
 const DEV_ML_API_URL = "http://127.0.0.1:8000";
 
+// Default backend for deployed builds when ML_API_URL is not set. This is the
+// project's public Render service — not a secret — and the env var always wins,
+// so a fork or a re-deploy can repoint without touching source. Local dev is
+// unaffected: outside production the fallback stays 127.0.0.1.
+const DEPLOYED_ML_API_URL = "https://krishimitra-api-t0wu.onrender.com";
+
 /** Headers that describe THIS hop and must not be forwarded to the upstream. */
 const REQUEST_HEADER_DENYLIST = new Set([
   "host",
@@ -89,7 +95,9 @@ const RESPONSE_HEADER_DENYLIST = new Set([
 function upstreamBaseUrl(): string {
   const configured =
     process.env.ML_API_URL?.trim() || process.env.NEXT_PUBLIC_ML_API_URL?.trim();
-  const base = configured || DEV_ML_API_URL;
+  const base =
+    configured ||
+    (process.env.NODE_ENV === "production" ? DEPLOYED_ML_API_URL : DEV_ML_API_URL);
   return base.replace(/\/+$/, "");
 }
 
