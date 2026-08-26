@@ -24,3 +24,7 @@ ml-service/catboost_info/
 
 # Build caches
 tsconfig.tsbuildinfo
+
+# macOS
+.DS_Store
+**/.DS_Store
