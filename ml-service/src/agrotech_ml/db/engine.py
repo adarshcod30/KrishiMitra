@@ -139,8 +139,18 @@ def _to_pyformat(sql: str) -> str:
     """
     out: list[str] = []
     in_string = False
-    for char in sql:
-        if char == "'":
+    in_comment = False  # -- line comments may contain apostrophes ("SQLite's")
+    i = 0
+    while i < len(sql):
+        char = sql[i]
+        if in_comment:
+            out.append(char)
+            if char == "\n":
+                in_comment = False
+        elif not in_string and char == "-" and sql[i : i + 2] == "--":
+            in_comment = True
+            out.append(char)
+        elif char == "'":
             in_string = not in_string
             out.append(char)
         elif char == "%":
@@ -149,6 +159,7 @@ def _to_pyformat(sql: str) -> str:
             out.append("%s")
         else:
             out.append(char)
+        i += 1
     return "".join(out)
 
 

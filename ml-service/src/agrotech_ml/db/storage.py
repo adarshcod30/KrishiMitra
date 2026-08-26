@@ -601,7 +601,10 @@ def search_users(settings: AppSettings, query: str, limit: int = 8) -> list[Farm
             """
             SELECT farmer_id, name, mobile, state, district
             FROM users
-            WHERE farmer_id LIKE ? OR name LIKE ? OR mobile LIKE ? OR district LIKE ? OR state LIKE ?
+            -- LOWER(...) on both sides keeps the match case-insensitive on
+            -- PostgreSQL too (its LIKE is case-sensitive; SQLite LIKE is not).
+            WHERE LOWER(farmer_id) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?)
+               OR mobile LIKE ? OR LOWER(district) LIKE LOWER(?) OR LOWER(state) LIKE LOWER(?)
             ORDER BY updated_at DESC
             LIMIT ?
             """,
