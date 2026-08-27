@@ -2,7 +2,7 @@
 
 # KrishiMitra
 
-**Satellite-and-soil crop intelligence for Indian smallholders — trained on government data, served free.**
+**Crop intelligence for Indian smallholders — trained on government data, served free.**
 
 A farmer enters seven soil and weather numbers, or photographs a diseased leaf, and gets back a
 ranked recommendation grounded in five years of district-level government crop returns, 13.35
@@ -78,8 +78,8 @@ The satellite subsystem additionally addresses a specific problem statement:
 
 ## What KrishiMitra Does
 
-Fifteen modules, each answering a question a farmer actually asks. Every one is wired to a live
-endpoint — none are mockups.
+Fourteen modules, each answering a question a farmer actually asks. Every one is wired to a live
+endpoint and backed by a real dataset — none are mockups.
 
 | Module | Farmer's question | What answers it |
 |---|---|---|
@@ -97,10 +97,23 @@ endpoint — none are mockups.
 | **Tool Rental** | "Where do I hire a tiller?" | Equipment rental listings by district |
 | **Farmer History** | "What did I do last season?" | Every advisory persisted and replayable per mobile number |
 | **Model Insights** | "Why should I trust this?" | Live feature importances, class distributions, model scores |
-| **Satellite Engine** | "How is my field doing from space?" | Optical + SAR fusion: crop type, moisture stress, irrigation timing |
 
-All fifteen render in **twelve languages** — English, Hindi, Marathi, Punjabi, Bengali, Telugu,
-Tamil, Kannada, Gujarati, Malayalam, Odia and Assamese.
+All of them render in **twelve languages** — English, Hindi, Marathi, Punjabi, Bengali, Telugu,
+Tamil, Kannada, Gujarati, Malayalam, Odia and Assamese. Thirteen are dashboard tabs; Crop
+Suitability is folded into Crop Intelligence rather than being a tab of its own.
+
+### Not in the app: the satellite engine
+
+[`satellite-ml/`](satellite-ml/README.md) is a **separate research package that is not wired into
+the running product.** The API does not import it, it is not a dependency of the service, none of
+the 37 endpoints serve its output, and no page renders it. It runs offline, on a simulator by
+default.
+
+It is documented here because it is real work that addresses the remote-sensing problem statement
+below, and because its FAO-56 water balance is the reference implementation the in-app irrigation
+rules were derived from. But nothing a farmer touches on the live site executes any of it. See
+[section 9](#9--satellite-engine--optical--microwave-fusion) for what it does and what its numbers
+mean.
 
 ---
 
@@ -246,8 +259,9 @@ government-data join is unavailable.
 
 ## How Prediction Actually Works
 
-This is the heart of the project. Nine prediction paths, each documented from raw input to rendered
-output. Where a path is *not* machine learning, that is stated plainly.
+This is the heart of the project. **Eight live prediction paths**, each documented from raw input
+to rendered output, plus the offline satellite engine as path 9. Where a path is *not* machine
+learning, that is stated plainly; where it does not run in the deployed product, that is stated too.
 
 ```mermaid
 flowchart LR
@@ -533,8 +547,15 @@ agree.
 
 **Package** [`satellite-ml/`](satellite-ml/README.md) · 2,941 lines · 13 tests
 
-This is the subsystem addressing the remote-sensing problem statement, and it is the most
-methodologically serious ML in the repository.
+> **This does not run in the deployed app.** The API does not import it, it is not a dependency of
+> the service, no endpoint serves its output, and no page renders it. It is an offline package you
+> run from the command line, on simulated data by default. Everything below describes what it does
+> when you run it yourself — not something a farmer receives.
+
+That said, it is the most methodologically serious ML in the repository, and it is the subsystem
+that addresses the remote-sensing problem statement. Its FAO-56 water balance is also the reference
+implementation the in-app irrigation rules were derived from, which is the one place its work
+reaches the product.
 
 ```mermaid
 flowchart LR
