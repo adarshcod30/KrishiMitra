@@ -710,10 +710,26 @@ def run_disease_diagnosis(payload: DiseaseRequest, settings: AppSettings) -> Dis
         severity = str(chosen["severity"])
         source = None
 
-    localized_treatment = _localize_text(settings, treatment, payload.language)
+    # Prefer text written natively in the farmer's language over any machine or
+    # transliterated rendering. The Kaggle Indian corpus ships Hindi and Marathi
+    # remedies, so a hi/mr speaker reads real Hindi instead of Hinglish like
+    # "एक्सेसिव नाइट्रोजन अवॉइड कीजिए".
+    native = ((entry or {}).get("translations") or {}).get(payload.language) or {}
+    native_title = str(native.get("title") or "").strip()
+    native_treatment = str(native.get("treatment") or "").strip()
+
+    localized_treatment = (
+        native_treatment
+        if native_treatment
+        else _localize_text(settings, treatment, payload.language)
+    )
     localized_prevention = _localize_texts(settings, prevention, payload.language)
     response = DiseaseResponse(
-        disease=_localize_text(settings, title, payload.language),
+        disease=(
+            native_title
+            if native_title
+            else _localize_text(settings, title, payload.language)
+        ),
         confidence=confidence,
         severity=severity,  # type: ignore[arg-type]
         advice=localized_treatment,

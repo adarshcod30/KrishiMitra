@@ -106,6 +106,17 @@ def load_disease_rows(settings: AppSettings) -> list[dict[str, Any]]:
                     "prevention": _split_list(_pick(row, "prevention")),
                     "severity": severity,
                     "source": _pick(row, "source"),
+                    # Native-language text from the Kaggle Indian corpus. When
+                    # present these are served verbatim, which is how a Hindi or
+                    # Marathi speaker gets real advice rather than the built-in
+                    # transliterator's Hinglish.
+                    "translations": {
+                        lang: {
+                            "title": (row.get(f"disease_{lang}") or "").strip(),
+                            "treatment": (row.get(f"treatment_{lang}") or "").strip(),
+                        }
+                        for lang in ("hi", "mr")
+                    },
                 }
             )
     if not rows:
@@ -125,6 +136,7 @@ def _build_disease_library(rows: list[dict[str, Any]]) -> dict[str, dict[str, An
             "prevention": row["prevention"],
             "severity": row["severity"],
             "source": row["source"],
+            "translations": row.get("translations") or {},
         }
         if entry is None:
             library[label] = candidate
@@ -136,6 +148,13 @@ def _build_disease_library(rows: list[dict[str, Any]]) -> dict[str, dict[str, An
             entry["prevention"] = candidate["prevention"]
         if not entry.get("source") and candidate["source"]:
             entry["source"] = candidate["source"]
+        for lang, text in (candidate.get("translations") or {}).items():
+            current = entry.setdefault("translations", {}).setdefault(
+                lang, {"title": "", "treatment": ""}
+            )
+            for field in ("title", "treatment"):
+                if not current.get(field) and text.get(field):
+                    current[field] = text[field]
     return library
 
 
