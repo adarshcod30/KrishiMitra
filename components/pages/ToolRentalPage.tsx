@@ -114,9 +114,15 @@ export function ToolRentalPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  {/* `availability` is a full sentence for catalogue entries
+                      ("Offline catalogue entry. Confirm live availability..."),
+                      so it is laid out as text. A pill badge cannot hold a
+                      100-character sentence without overflowing its radius. */}
+                  <div style={{ marginTop: "0.15rem" }}>
                     <span className="stat-label">{t("rental.availability")}</span>
-                    <span className="badge badge-success">{tool.availability}</span>
+                    <p className="field-help" style={{ margin: "0.2rem 0 0" }}>
+                      {tool.availability}
+                    </p>
                   </div>
                 </article>
               ))}

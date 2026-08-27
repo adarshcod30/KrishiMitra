@@ -66,8 +66,15 @@ function resolveRequestUrl(path: string): string {
  */
 const CLIENT_TIMEOUT_MS = 65_000;
 
-/** Delay before the single automatic retry when the backend looks asleep. */
-const COLD_START_RETRY_DELAY_MS = 8_000;
+/**
+ * Backoff schedule for a sleeping backend.
+ *
+ * Render answers 502/503 *immediately* while an instance spins up, so a single
+ * retry 8s later still lands well inside the ~60-110s wake time and the farmer
+ * saw an error after ~10 seconds. These delays keep trying across roughly two
+ * minutes, which is what a cold start actually costs.
+ */
+const COLD_START_BACKOFF_MS = [6_000, 12_000, 20_000, 30_000, 40_000];
 
 /**
  * Message shown when both attempts died on a 502/503/504. The backend runs on
@@ -146,27 +153,44 @@ async function requestJson<T>(
 ): Promise<T> {
   const retryColdStart = options?.retryColdStart ?? true;
 
-  try {
-    return await requestJsonOnce<T>(path, init);
-  } catch (first) {
-    if (!retryColdStart || !isRetryableError(first)) {
-      throw first;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
-
+  let lastError: unknown;
+  for (let attempt = 0; ; attempt += 1) {
     try {
       return await requestJsonOnce<T>(path, init);
-    } catch (second) {
-      // Two 5xx gateway failures in a row: almost certainly the free server
-      // waking up. Throw a plain Error so `toUserMessage` renders this text
-      // verbatim instead of the generic 5xx sentence.
-      if (isColdStartError(second)) {
-        throw new Error(WAKING_MESSAGE);
+    } catch (error) {
+      lastError = error;
+      const canRetry =
+        retryColdStart &&
+        isRetryableError(error) &&
+        attempt < COLD_START_BACKOFF_MS.length;
+      if (!canRetry) {
+        break;
       }
-      throw second;
+      await new Promise((resolve) =>
+        setTimeout(resolve, COLD_START_BACKOFF_MS[attempt])
+      );
     }
   }
+
+  // Every attempt died on a gateway error: the free instance is still waking.
+  // Throw a plain Error so `toUserMessage` renders this text verbatim rather
+  // than the generic 5xx sentence.
+  if (isColdStartError(lastError)) {
+    throw new Error(WAKING_MESSAGE);
+  }
+  throw lastError;
+}
+
+/**
+ * Nudge the backend awake without blocking anything.
+ *
+ * Called once when the dashboard mounts. A farmer typically spends 10-30s
+ * reading the page and filling a form before their first real request, which
+ * is exactly the head start a sleeping instance needs. Fire-and-forget: a
+ * failure here must never surface.
+ */
+export function warmUpBackend(): void {
+  void requestJson("/warmup", undefined, { retryColdStart: false }).catch(() => {});
 }
 
 export function fetchLanguages(): Promise<{ languages: Record<LanguageCode, string> }> {

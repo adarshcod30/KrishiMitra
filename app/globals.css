@@ -392,6 +392,13 @@ svg {
   background: var(--bg-subtle);
   color: var(--ink-secondary);
   border: 1px solid var(--line);
+  /* Badges are for short labels, but API text is not always short. Wrap and
+     cap the width so an unexpectedly long value degrades into a rounded block
+     instead of spilling outside its own border. */
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .badge-success,

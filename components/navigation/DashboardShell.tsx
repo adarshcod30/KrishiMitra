@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
+import { warmUpBackend } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icons";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -46,6 +47,13 @@ const NAV_SECTIONS = [
 ] as const;
 
 export function DashboardShell({ children }: { children: ReactNode }) {
+  // The API sleeps on free hosting and needs ~60s to wake. Nudging it the
+  // moment the dashboard mounts means it is usually already up by the time the
+  // farmer submits their first form, instead of them meeting a cold start.
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
+
   const pathname = usePathname();
   const { t } = useLanguage();
 
