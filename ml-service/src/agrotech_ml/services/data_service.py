@@ -14,7 +14,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from agrotech_ml.datafiles import data_file
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from xml.etree import ElementTree
 
@@ -88,6 +88,22 @@ RENTAL_SCRAPE_TIMEOUT_SECONDS = 5.0
 RENTAL_CACHE_TTL_SECONDS = 600
 _rental_cache: dict[str, tuple[float, str | None]] = {}
 _rental_cache_lock = threading.Lock()
+
+# Open-Meteo is free and key-less but rate-limits per IP, and Render's free tier
+# shares egress IPs with other tenants - production was returning a persistent
+# 429 while the same request from a laptop succeeded. Their usage policy asks
+# API consumers to cache, so we do: a forecast is keyed on coordinates rounded
+# to ~1 km and refreshed hourly, which is far finer than the data actually
+# changes. Geocoding is cached for a day; towns do not move.
+WEATHER_CACHE_TTL_SECONDS = 3600
+GEOCODE_CACHE_TTL_SECONDS = 86_400
+# Served when upstream is unavailable: a stale forecast beats an error page.
+STALE_WEATHER_MAX_AGE_SECONDS = 21_600
+
+_weather_cache: dict[tuple[float, float, int], tuple[float, Any]] = {}
+_weather_cache_lock = threading.Lock()
+_geocode_cache: dict[str, tuple[float, list]] = {}
+_geocode_cache_lock = threading.Lock()
 
 TAG_RE = re.compile(r"<[^>]+>")
 DATA_GOV_URL_RE = re.compile(r'field_datafile_url:"([^"]+)"')
@@ -1162,10 +1178,33 @@ async def fetch_weather(
         "forecast_days": days,
     }
 
-    async with httpx.AsyncClient(timeout=_get_timeout(settings)) as client:
-        response = await client.get("https://api.open-meteo.com/v1/forecast", params=query)
-        response.raise_for_status()
-        payload = response.json()
+    # Round to ~1 km so nearby farmers share one upstream call.
+    cache_key = (round(latitude, 2), round(longitude, 2), days)
+    now = time.time()
+    with _weather_cache_lock:
+        cached = _weather_cache.get(cache_key)
+    if cached and now - cached[0] < WEATHER_CACHE_TTL_SECONDS:
+        payload = cached[1]
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=_get_timeout(settings)) as client:
+                response = await client.get(
+                    "https://api.open-meteo.com/v1/forecast",
+                    params=query,
+                    headers={"User-Agent": DEFAULT_USER_AGENT},
+                )
+                response.raise_for_status()
+                payload = response.json()
+            with _weather_cache_lock:
+                _weather_cache[cache_key] = (now, payload)
+        except Exception:
+            # Rate-limited or unreachable. A forecast a few hours old is still
+            # useful to a farmer; an error page is not.
+            if cached and now - cached[0] < STALE_WEATHER_MAX_AGE_SECONDS:
+                logger.warning("weather upstream failed; serving cached forecast")
+                payload = cached[1]
+            else:
+                raise
 
     daily_payload = payload.get("daily", {})
     dates = daily_payload.get("time", [])
@@ -1186,7 +1225,11 @@ async def fetch_weather(
             )
         )
 
-    soil_hint = "Loamy balance likely" if (abs(latitude) + abs(longitude)) % 2 > 1 else "Clay loam tendency"
+    # This field used to guess a soil TEXTURE from (latitude + longitude) % 2,
+    # which is arithmetic dressed up as soil science and was shown to farmers as
+    # advice. Soil now comes from the Soil Health Card baselines on the Soil
+    # Check page; here we say only what the forecast itself supports.
+    soil_hint = _forecast_advisory(daily)
     localized_hint = soil_hint if language == "en" else _translate_value(settings, soil_hint, language)
 
     return WeatherResponse(
@@ -1199,17 +1242,60 @@ async def fetch_weather(
     )
 
 
+def _forecast_advisory(daily: list[WeatherDay]) -> str:
+    """One actionable sentence derived strictly from the forecast."""
+    if not daily:
+        return "Forecast unavailable."
+    window = daily[:3]
+    rain_3d = sum(day.rain_mm for day in window)
+    hottest = max(day.max_temp for day in window)
+    coldest = min(day.min_temp for day in window)
+
+    if rain_3d >= 50:
+        return (
+            f"Heavy rain expected ({rain_3d:.0f} mm over 3 days). Hold back "
+            "irrigation and do not apply fertiliser or spray before it passes."
+        )
+    if rain_3d >= 10:
+        return (
+            f"Rain likely ({rain_3d:.0f} mm over 3 days). You can delay the next "
+            "irrigation and should time any spraying around it."
+        )
+    if hottest >= 38:
+        return (
+            f"Hot spell ahead (up to {hottest:.0f}C). Irrigate early morning or "
+            "evening to cut evaporation loss, and mulch if you can."
+        )
+    if coldest <= 5:
+        return (
+            f"Cold nights ahead (down to {coldest:.0f}C). Light evening irrigation "
+            "reduces frost damage to standing crops."
+        )
+    return (
+        "No rain expected in the next 3 days. Plan irrigation normally and check "
+        "soil moisture before watering."
+    )
+
+
 async def search_locations(query: str) -> list[LocationSearchItem]:
+    key = query.strip().lower()
+    now = time.time()
+    with _geocode_cache_lock:
+        cached = _geocode_cache.get(key)
+    if cached and now - cached[0] < GEOCODE_CACHE_TTL_SECONDS:
+        return cached[1]
+
     async with httpx.AsyncClient(timeout=20) as client:
         response = await client.get(
             "https://geocoding-api.open-meteo.com/v1/search",
             params={"name": query, "count": 6, "language": "en", "format": "json"},
+            headers={"User-Agent": DEFAULT_USER_AGENT},
         )
         response.raise_for_status()
         payload = response.json()
 
     results = payload.get("results") or []
-    return [
+    items = [
         LocationSearchItem(
             name=item.get("name", ""),
             admin1=item.get("admin1"),
