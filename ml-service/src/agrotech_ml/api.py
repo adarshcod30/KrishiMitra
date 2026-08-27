@@ -95,7 +95,7 @@ from agrotech_ml.models.schemas import (
 )
 from agrotech_ml.core.settings import get_settings
 from agrotech_ml.db.storage import get_farmer_workspace, resolve_mobile, save_upload
-from agrotech_ml.services import leaf_diagnosis, retrain_job
+from agrotech_ml.services import crop_suitability, leaf_diagnosis, retrain_job
 from agrotech_ml.services.training import load_metadata
 from agrotech_ml.services.upload_service import (
     OCTET_STREAM,
@@ -485,6 +485,24 @@ def fetch_farms(mobile: str, auth: AuthContext = Auth) -> list[FarmProfile]:
 # ---------------------------------------------------------------------------
 # Uploads
 # ---------------------------------------------------------------------------
+
+
+@app.get("/crops/local")
+def local_crops(
+    state: str = Query(..., min_length=2),
+    district: str = Query(..., min_length=2),
+    season: str | None = Query(None),
+    limit: int = Query(6, ge=1, le=20),
+    auth: AuthContext = Auth,
+) -> dict:
+    """Crops proven to yield well in this district, from government returns.
+
+    Complements POST /predict: that answers "what suits these soil numbers",
+    this answers "what actually grows here". Returns an empty list with
+    matched=false when the district is absent, so the UI can say so plainly
+    instead of showing nothing.
+    """
+    return crop_suitability.recommend(state, district, season, limit)
 
 
 @app.post("/disease/diagnose/photo", response_model=DiseaseResponse)

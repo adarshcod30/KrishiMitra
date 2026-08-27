@@ -59,3 +59,7 @@ access_token
 # Leaf model is regenerable from data/leaf_features.csv via
 # scripts/train_leaf_model.py --from-features; too large for git.
 ml-service/artifacts/leaf_model.joblib
+
+# APY raw exports are transient: build_apy_dataset.py turns them into
+# data/apy_long.csv.gz, which is what gets committed.
+ml-service/data/apy_raw/
