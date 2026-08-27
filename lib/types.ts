@@ -127,6 +127,14 @@ export interface DiseaseResponse {
   severity: "low" | "moderate" | "high";
   advice: string;
   preventive_actions: string[];
+  /**
+   * Additive fields from the API's curated disease dataset. `advice` keeps
+   * carrying the treatment text, so these stay optional for older APIs.
+   */
+  treatment?: string | null;
+  prevention?: string[] | null;
+  /** Provenance of the advice, e.g. an ICAR/state agri-department page. */
+  source?: string | null;
 }
 
 export interface FertilizerRequest {
@@ -180,10 +188,25 @@ export interface SchemeItem {
   description: string;
   eligibility: string;
   link: string;
+  /**
+   * Optional fields the API may add (curated scheme catalogue). Optional so an
+   * older API that omits them keeps working unchanged.
+   */
+  how_to_apply?: string[] | null;
+  /** Provenance note, e.g. "Source: pmkisan.gov.in". */
+  source?: string | null;
 }
 
 export interface SchemeResponse {
   schemes: SchemeItem[];
+  /**
+   * Additive fields from the API: where the recommendations came from.
+   * `source` is a machine label ("myscheme_live", "official_catalog", ...);
+   * `note` is a human sentence safe to render as-is. Optional so an older API
+   * that omits them keeps working unchanged.
+   */
+  source?: string | null;
+  note?: string | null;
 }
 
 export interface MarketPriceItem {
@@ -192,14 +215,27 @@ export interface MarketPriceItem {
   state: string;
   modal_price_inr_quintal: number;
   trend: "up" | "down" | "stable";
+  /** Additive: the arrival date the price was reported for (ISO date). */
+  arrival_date?: string | null;
+  /** Additive: link to the data.gov.in / Agmarknet source row. */
+  source_url?: string | null;
 }
 
 export interface RentalTool {
   name: string;
-  hourly_rate_inr: number;
+  /**
+   * The live API returns null for some entries (e.g. eNAM logistics listings
+   * without a published rate), so the type must admit it — the UI shows
+   * "Ask provider" instead of a bare rupee sign.
+   */
+  hourly_rate_inr: number | null;
   provider: string;
   location: string;
   availability: string;
+  /** Additive: e.g. "custom hiring centre", "logistics". */
+  service_type?: string | null;
+  /** Additive: link to the provider / listing source. */
+  source_url?: string | null;
 }
 
 export interface InvestorOpportunity {
@@ -217,6 +253,10 @@ export interface KnowledgeArticle {
   summary: string;
   url?: string;
   source?: string;
+  /** Set by the API when serving saved/offline content instead of a live feed. */
+  is_fallback?: boolean | null;
+  /** Optional provenance/freshness note from the API. */
+  source_note?: string | null;
 }
 
 export interface UserProfile {
@@ -314,6 +354,10 @@ export interface NewsItem {
   url: string;
   source: string;
   published_at?: string | null;
+  /** Set by the API when serving saved/offline content instead of a live feed. */
+  is_fallback?: boolean | null;
+  /** Optional provenance/freshness note from the API. */
+  source_note?: string | null;
 }
 
 export interface LocationSearchItem {

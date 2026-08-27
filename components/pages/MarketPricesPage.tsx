@@ -30,8 +30,11 @@ export function MarketPricesPage() {
   const [stateFilter, setStateFilter] = useState("");
 
   // Filters are applied on demand (Search button), not on every keystroke, so
-  // they are read through a ref instead of being loader dependencies.
+  // they are read through a ref instead of being loader dependencies. The
+  // boolean state mirror exists only so the empty message can react to whether
+  // a filtered search was submitted (rendering must not read a mutable ref).
   const filtersRef = useRef({ crop: "", state: "" });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const loadPrices = useCallback(
     () =>
@@ -47,6 +50,7 @@ export function MarketPricesPage() {
 
   function applyFilters() {
     filtersRef.current = { crop: cropFilter, state: stateFilter };
+    setHasActiveFilters(Boolean(cropFilter || stateFilter));
     pricesResource.reload();
   }
 
@@ -54,9 +58,13 @@ export function MarketPricesPage() {
     setCropFilter("");
     setStateFilter("");
     filtersRef.current = { crop: "", state: "" };
+    setHasActiveFilters(false);
     pricesResource.reload();
   }
 
+  // "stable" is also what the API answers when it has only one day of data and
+  // cannot compute a trend at all, so a "Steady" badge on every row would be
+  // meaningless. Only a real movement gets a badge.
   const trendBadgeClass = (trend: string) => {
     if (trend === "up") return "badge-success";
     if (trend === "down") return "badge-danger";
@@ -66,7 +74,7 @@ export function MarketPricesPage() {
   const trendLabel = (trend: string) => {
     if (trend === "up") return "Going up";
     if (trend === "down") return "Going down";
-    return "Steady";
+    return null;
   };
 
   return (
@@ -162,7 +170,16 @@ export function MarketPricesPage() {
           <AsyncSection
             resource={pricesResource}
             icon="market"
-            emptyMessage={t("market.empty")}
+            emptyMessage={
+              hasActiveFilters
+                ? // Prices come from the day's mandi arrivals, so many
+                  // crop/state combinations legitimately have no rows today.
+                  // Tell the farmer what to do instead of a bare "no data".
+                  "No prices reported today for this crop and state. Mandi prices " +
+                  "come from each day's arrivals, so try All crops or All states, " +
+                  "or check again tomorrow."
+                : t("market.empty")
+            }
             isEmpty={(items) => items.length === 0}
           >
             {(prices) => (
@@ -176,6 +193,13 @@ export function MarketPricesPage() {
                       <div style={{ fontSize: "0.95rem", color: "var(--ink-secondary)" }}>
                         {item.mandi}, {item.state}
                       </div>
+                      {/* Additive field: the day this price was reported for.
+                          Older API versions omit it, so render only if set. */}
+                      {item.arrival_date && (
+                        <div style={{ fontSize: "0.85rem", color: "var(--ink-secondary)" }}>
+                          Price date: {new Date(item.arrival_date).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div
@@ -196,9 +220,11 @@ export function MarketPricesPage() {
                       <div style={{ fontSize: "0.9rem", color: "var(--ink-secondary)", fontWeight: 600 }}>
                         per quintal
                       </div>
-                      <span className={`badge ${trendBadgeClass(item.trend)}`} style={{ marginTop: "0.3rem" }}>
-                        {trendLabel(item.trend)}
-                      </span>
+                      {trendLabel(item.trend) && (
+                        <span className={`badge ${trendBadgeClass(item.trend)}`} style={{ marginTop: "0.3rem" }}>
+                          {trendLabel(item.trend)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -88,7 +88,15 @@ export function ToolRentalPage() {
 
                   <div className="stat-item">
                     <span className="stat-label">Rent per hour</span>
-                    <span className="stat-value">₹{tool.hourly_rate_inr}</span>
+                    {/* Some listings (e.g. eNAM logistics) have no published
+                        rate — say so instead of rendering a bare rupee sign. */}
+                    {typeof tool.hourly_rate_inr === "number" ? (
+                      <span className="stat-value">₹{tool.hourly_rate_inr}</span>
+                    ) : (
+                      <span className="stat-value" style={{ color: "var(--ink-secondary)" }}>
+                        Ask provider
+                      </span>
+                    )}
                   </div>
 
                   <div

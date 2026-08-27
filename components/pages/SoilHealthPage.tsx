@@ -206,7 +206,11 @@ export function SoilHealthPage() {
 
               {result.recommended_crop_focus && result.recommended_crop_focus.length > 0 && (
                 <div style={{ marginTop: "1rem" }}>
-                  <div className="tips-title">{t("nav.crop")}</div>
+                  {/* The API currently fills this field with nutrient-management
+                      practices ("Split nitrogen application"), not crop names, so
+                      labelling it "What to Grow" (nav.crop) misled farmers. A
+                      neutral heading stays correct if the API later returns crops. */}
+                  <div className="tips-title">Recommended focus</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.4rem" }}>
                     {result.recommended_crop_focus.map((crop) => (
                       <span key={crop} className="badge badge-success">

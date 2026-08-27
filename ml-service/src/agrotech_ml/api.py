@@ -54,6 +54,7 @@ from agrotech_ml.services.inference import (
     run_irrigation_schedule,
     run_prediction,
     run_soil_analysis,
+    warm_models,
 )
 from agrotech_ml.models.schemas import (
     AdvisoryRecord,
@@ -182,6 +183,24 @@ def health() -> dict[str, object]:
         "environment": settings.environment,
         "models_ready": models_ready(settings),
         "write_auth_required": settings.require_write_auth,
+    }
+
+
+@app.get("/warmup")
+def warmup(background_tasks: BackgroundTasks) -> dict[str, object]:
+    """Keep-alive ping for free-tier hosts that spin the instance down.
+
+    No auth and instant response by design: an external pinger (cron, uptime
+    monitor) hits this every few minutes so the container stays warm. Model
+    artifacts are loaded lazily in a background task, so the first real
+    request after a cold start finds them already in memory.
+    """
+    background_tasks.add_task(warm_models, settings)
+    return {
+        "status": "ok",
+        "service": "agrotech-unified-api",
+        "models_ready": models_ready(settings),
+        "warming": "scheduled",
     }
 
 
@@ -355,7 +374,13 @@ async def news_feed(
 def schemes(
     payload: SchemeRecommendationRequest, auth: AuthContext = Auth
 ) -> SchemeResponse:
-    return SchemeResponse(schemes=recommend_schemes(settings, payload))
+    """Scheme recommendations with a source note.
+
+    Never silently empty: live MyScheme results (when an API key is
+    configured) are merged with the committed, verified offline catalogue,
+    and the response says which source produced the list.
+    """
+    return recommend_schemes(settings, payload)
 
 
 @app.get("/market/prices", response_model=list[MarketPriceItem])

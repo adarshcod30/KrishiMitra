@@ -1,0 +1,519 @@
+{
+  "version": 1,
+  "verified_date": "2026-08-27",
+  "notes": "Committed offline farming knowledge library. Every article is based on public Indian agricultural extension guidance (ICAR institutes, TNAU Agritech, PPQS, official scheme portals) cited in source_url. Titles, summaries and body points are provided in English (en) and Hindi (hi).",
+  "articles": [
+    {
+      "id": "kb-soil-testing",
+      "category": "soil",
+      "priority": 1,
+      "title": {
+        "en": "Get Your Soil Tested Free Every 2-3 Years",
+        "hi": "हर 2-3 साल में मिट्टी की मुफ्त जांच कराएं"
+      },
+      "summary": {
+        "en": "A free Soil Health Card test tells you exactly which nutrients your field lacks, so you buy only the fertilizer you need and save 10-15% of fertilizer cost.",
+        "hi": "मुफ्त मृदा स्वास्थ्य कार्ड जांच बताती है कि आपके खेत में किस पोषक तत्व की कमी है, जिससे आप सिर्फ जरूरी खाद खरीदते हैं और 10-15% खर्च बचता है।"
+      },
+      "body_points": {
+        "en": [
+          "Collect soil from 8-10 spots in the field in a zig-zag pattern, 15 cm deep, mix well and take about half a kilo.",
+          "Do not sample right after applying fertilizer or manure, from field edges, or near trees and bunds.",
+          "Give the sample to your village agriculture officer or Krishi Vigyan Kendra, or register on soilhealth.dac.gov.in - testing is free.",
+          "The card reports 12 things including N, P, K, pH and organic carbon, with a fertilizer dose for each crop.",
+          "Follow the card dose instead of habit - most fields in India get too much urea and too little of everything else.",
+          "Repeat the test for each field every 2-3 years."
+        ],
+        "hi": [
+          "खेत में 8-10 जगहों से टेढ़ी-मेढ़ी (जिग-जैग) चाल में, 15 सेमी गहराई से मिट्टी लें, अच्छी तरह मिलाकर करीब आधा किलो नमूना बनाएं।",
+          "खाद या गोबर डालने के तुरंत बाद, खेत के किनारों से या पेड़ और मेड़ के पास से नमूना न लें।",
+          "नमूना गांव के कृषि अधिकारी या कृषि विज्ञान केंद्र को दें, या soilhealth.dac.gov.in पर पंजीकरण करें - जांच मुफ्त है।",
+          "कार्ड में एन, पी, के, पीएच और जैविक कार्बन समेत 12 चीजें और हर फसल के लिए खाद की मात्रा लिखी होती है।",
+          "आदत से नहीं, कार्ड की मात्रा से खाद डालें - भारत के अधिकतर खेतों में यूरिया ज्यादा और बाकी पोषक तत्व कम डाले जाते हैं।",
+          "हर खेत की जांच हर 2-3 साल में दोहराएं।"
+        ]
+      },
+      "source_url": "https://soilhealth.dac.gov.in/",
+      "source_name": "Soil Health Card portal, Govt. of India"
+    },
+    {
+      "id": "kb-balanced-fertilizer",
+      "category": "soil",
+      "priority": 2,
+      "title": {
+        "en": "Balanced Fertilizer: Split Your Urea, Add What Is Missing",
+        "hi": "संतुलित खाद: यूरिया बांटकर डालें, कमी वाले तत्व जोड़ें"
+      },
+      "summary": {
+        "en": "Yield does not come from urea alone. Splitting nitrogen into 2-3 doses and correcting phosphorus, potash and micronutrients as per your soil card gives more grain for less money.",
+        "hi": "उपज सिर्फ यूरिया से नहीं आती। नाइट्रोजन को 2-3 किस्तों में बांटना और मृदा कार्ड के अनुसार फास्फोरस, पोटाश व सूक्ष्म तत्वों की कमी पूरी करना कम खर्च में ज्यादा अनाज देता है।"
+      },
+      "body_points": {
+        "en": [
+          "Apply full phosphorus and potash as a basal dose at sowing - they do not move to the roots if top-dressed later.",
+          "Split nitrogen: for wheat give half at sowing and the rest at first irrigation; for rice give it in 3 splits at transplanting, tillering and panicle stage.",
+          "Too much urea gives soft dark green plants that attract aphids, hoppers and diseases.",
+          "If your soil card shows low zinc, apply zinc sulphate at the recommended dose once every 2-3 seasons - zinc deficiency is very common in rice-wheat belts.",
+          "Mix in compost or FYM every year; organic carbon is what keeps fertilizer working."
+        ],
+        "hi": [
+          "पूरा फास्फोरस और पोटाश बुवाई के समय बेसल में दें - बाद में छिड़कने पर ये जड़ों तक नहीं पहुंचते।",
+          "नाइट्रोजन बांटें: गेहूं में आधा बुवाई पर, बाकी पहली सिंचाई पर; धान में रोपाई, कल्ले फूटने और बाली बनने पर 3 किस्तों में।",
+          "ज्यादा यूरिया से पौधे मुलायम और गहरे हरे होते हैं जिन पर माहू, फुदका और रोग ज्यादा लगते हैं।",
+          "मृदा कार्ड में जिंक कम दिखे तो हर 2-3 सीजन में एक बार सिफारिश की मात्रा में जिंक सल्फेट डालें - धान-गेहूं क्षेत्र में जिंक की कमी बहुत आम है।",
+          "हर साल कम्पोस्ट या सड़ी गोबर खाद मिलाएं; जैविक कार्बन ही खाद को असरदार बनाए रखता है।"
+        ]
+      },
+      "source_url": "https://soilhealth.dac.gov.in/",
+      "source_name": "Soil Health Card portal; ICAR extension guidance"
+    },
+    {
+      "id": "kb-composting-fym",
+      "category": "soil",
+      "priority": 3,
+      "title": {
+        "en": "Compost and FYM: Turn Farm Waste into Free Fertilizer",
+        "hi": "कम्पोस्ट और गोबर खाद: खेत के कचरे से मुफ्त खाद"
+      },
+      "summary": {
+        "en": "Well-rotted farmyard manure and compost improve soil structure, hold water, and cut fertilizer bills. Raw dung, on the other hand, invites termites and weeds.",
+        "hi": "अच्छी सड़ी गोबर खाद और कम्पोस्ट मिट्टी की बनावट सुधारते हैं, पानी रोकते हैं और खाद का खर्च घटाते हैं। कच्चा गोबर दीमक और खरपतवार बुलाता है।"
+      },
+      "body_points": {
+        "en": [
+          "Never apply raw dung to the field - compost it for at least 3-4 months until it is dark, crumbly and smell-free.",
+          "Make a compost pit or heap in shade: layer crop waste and dung, keep it moist like a squeezed sponge, and turn it monthly.",
+          "Vermicompost is ready in 60-75 days and is richer; earthworm units are subsidised in many states through the agriculture department.",
+          "Apply 4-6 tonnes of FYM or 2 tonnes of vermicompost per acre before sowing and mix into the soil.",
+          "Compost works best together with, not instead of, the soil-card fertilizer dose - reduce chemical dose gradually as soil improves."
+        ],
+        "hi": [
+          "कच्चा गोबर कभी खेत में न डालें - 3-4 महीने सड़ाकर तब डालें जब वह काला, भुरभुरा और बिना बदबू का हो जाए।",
+          "छांव में गड्ढा या ढेर बनाएं: फसल अवशेष और गोबर की परतें लगाएं, निचोड़े स्पंज जितना नम रखें, महीने में एक बार पलटें।",
+          "वर्मी कम्पोस्ट 60-75 दिन में तैयार और ज्यादा पौष्टिक होता है; कई राज्यों में कृषि विभाग से केंचुआ इकाई पर सब्सिडी मिलती है।",
+          "बुवाई से पहले प्रति एकड़ 4-6 टन गोबर खाद या 2 टन वर्मी कम्पोस्ट डालकर मिट्टी में मिलाएं।",
+          "कम्पोस्ट रासायनिक खाद की जगह नहीं, उसके साथ काम करता है - मिट्टी सुधरने पर रासायनिक मात्रा धीरे-धीरे घटाएं।"
+        ]
+      },
+      "source_url": "https://vikaspedia.in/agriculture",
+      "source_name": "Vikaspedia agriculture portal; ICAR guidance on organic manures"
+    },
+    {
+      "id": "kb-mulching",
+      "category": "soil",
+      "priority": 4,
+      "title": {
+        "en": "Mulching: Cover the Soil, Save the Water",
+        "hi": "मल्चिंग: मिट्टी ढकें, पानी बचाएं"
+      },
+      "summary": {
+        "en": "A layer of straw, leaves or plastic film over the soil cuts evaporation, stops most weeds and keeps roots cool - often saving one full irrigation.",
+        "hi": "मिट्टी पर पुआल, पत्तियों या प्लास्टिक फिल्म की परत वाष्पीकरण घटाती है, अधिकतर खरपतवार रोकती है और जड़ों को ठंडा रखती है - अक्सर एक पूरी सिंचाई बच जाती है।"
+      },
+      "body_points": {
+        "en": [
+          "Spread 5-8 cm of straw, dry grass or crop residue between rows after the crop is established.",
+          "In vegetables, black plastic mulch with drip irrigation gives the biggest water and weed savings; many horticulture departments subsidise it.",
+          "Sugarcane trash mulching between rows also keeps early shoot borer away.",
+          "Do not mulch right against the stem - leave a small gap to avoid rot.",
+          "Organic mulch slowly becomes compost - plough it in after harvest instead of burning."
+        ],
+        "hi": [
+          "फसल जमने के बाद कतारों के बीच 5-8 सेमी पुआल, सूखी घास या फसल अवशेष बिछाएं।",
+          "सब्जियों में काली प्लास्टिक मल्च और ड्रिप साथ में सबसे ज्यादा पानी व निराई बचाते हैं; कई राज्यों में उद्यानिकी विभाग सब्सिडी देता है।",
+          "गन्ने में कतारों के बीच पत्ती (ट्रैश) बिछाने से अगेती तना छेदक भी दूर रहता है।",
+          "मल्च तने से सटाकर न लगाएं - सड़न से बचने के लिए थोड़ी दूरी रखें।",
+          "जैविक मल्च धीरे-धीरे खाद बन जाता है - जलाने की बजाय कटाई के बाद जुताई कर मिट्टी में मिला दें।"
+        ]
+      },
+      "source_url": "https://agritech.tnau.ac.in/",
+      "source_name": "TNAU Agritech Portal"
+    },
+    {
+      "id": "kb-drip-vs-flood",
+      "category": "production",
+      "priority": 5,
+      "title": {
+        "en": "Drip vs Flood: Water the Plant, Not the Field",
+        "hi": "ड्रिप बनाम बहाव सिंचाई: खेत को नहीं, पौधे को पानी दें"
+      },
+      "summary": {
+        "en": "Drip irrigation uses 40-60% less water than flooding, feeds fertilizer straight to the root, and raises yields 20-30%. Government pays 45-55% of the cost under Per Drop More Crop.",
+        "hi": "ड्रिप सिंचाई बहाव के मुकाबले 40-60% कम पानी लेती है, खाद सीधे जड़ तक पहुंचाती है और उपज 20-30% बढ़ाती है। 'प्रति बूंद अधिक फसल' योजना में सरकार 45-55% लागत देती है।"
+      },
+      "body_points": {
+        "en": [
+          "Flooding loses most water to evaporation and seepage; drip gives each plant a slow, direct supply.",
+          "Small and marginal farmers get 55% subsidy on drip and sprinkler systems, other farmers 45%; several states add their own top-up.",
+          "Drip suits fruits, vegetables, cotton and sugarcane best; sprinklers suit wheat, pulses and oilseeds.",
+          "Fertigation (dissolving urea or soluble fertilizer in drip water) saves fertilizer and labour.",
+          "Apply through your state micro-irrigation portal or block horticulture office with land record, Aadhaar and a supplier quotation.",
+          "Even without drip, irrigating in the evening or early morning and using furrows instead of full flooding saves water."
+        ],
+        "hi": [
+          "बहाव सिंचाई का अधिकांश पानी भाप और रिसाव में चला जाता है; ड्रिप हर पौधे को धीरे-धीरे सीधा पानी देती है।",
+          "छोटे-सीमांत किसानों को ड्रिप व स्प्रिंकलर पर 55% और अन्य किसानों को 45% सब्सिडी मिलती है; कई राज्य अपनी ओर से और जोड़ते हैं।",
+          "ड्रिप फल, सब्जी, कपास और गन्ने के लिए सबसे अच्छी है; स्प्रिंकलर गेहूं, दलहन और तिलहन के लिए।",
+          "फर्टिगेशन (ड्रिप के पानी में घुलनशील खाद देना) खाद और मजदूरी दोनों बचाता है।",
+          "राज्य के सूक्ष्म सिंचाई पोर्टल या ब्लॉक उद्यानिकी कार्यालय में जमीन के कागज, आधार और आपूर्तिकर्ता के कोटेशन के साथ आवेदन करें।",
+          "ड्रिप न भी हो तो शाम या सुबह सिंचाई और पूरे खेत में बहाव की जगह नालियों (कूड़) से सिंचाई पानी बचाती है।"
+        ]
+      },
+      "source_url": "https://pmksy.gov.in/microirrigation/",
+      "source_name": "PMKSY Per Drop More Crop, Govt. of India"
+    },
+    {
+      "id": "kb-seed-treatment",
+      "category": "production",
+      "priority": 6,
+      "title": {
+        "en": "Seed Treatment: One Rupee of Protection Before Sowing",
+        "hi": "बीज उपचार: बुवाई से पहले एक रुपये की सुरक्षा"
+      },
+      "summary": {
+        "en": "Treating seed with a fungicide and bioagent before sowing is the cheapest plant protection there is - it prevents wilt, smut, rot and early pest attack for a few rupees per kilo.",
+        "hi": "बुवाई से पहले बीज को फफूंदनाशक और जैविक कल्चर से उपचारित करना सबसे सस्ता पौध संरक्षण है - चंद रुपये प्रति किलो में उकठा, कंडुआ, सड़न और शुरुआती कीट से बचाव।"
+      },
+      "body_points": {
+        "en": [
+          "Follow the order: chemical fungicide first, then insecticide if needed, and bioagents like Trichoderma or Rhizobium last, just before sowing.",
+          "Common doses: carboxin+thiram or carbendazim 2 g per kg for smuts and rots; Trichoderma viride 4 g per kg for wilts; imidacloprid where termites or early sucking pests are a problem.",
+          "Legume seed also needs Rhizobium culture - it fixes free nitrogen in root nodules.",
+          "Wet the seed lightly, sprinkle the powder, mix in a closed drum or bag, and dry in shade - never in the sun.",
+          "Wear gloves or use a stick to mix, and never use treated seed for eating or feed."
+        ],
+        "hi": [
+          "क्रम याद रखें: पहले रासायनिक फफूंदनाशक, जरूरत हो तो फिर कीटनाशक, और सबसे अंत में बुवाई से ठीक पहले ट्राइकोडर्मा या राइजोबियम जैसे जैविक कल्चर।",
+          "आम मात्राएं: कंडुआ व सड़न के लिए कार्बोक्सिन+थायरम या कार्बेन्डाजिम 2 ग्राम प्रति किलो; उकठा के लिए ट्राइकोडर्मा 4 ग्राम प्रति किलो; दीमक या शुरुआती रस चूसक कीट की समस्या में इमिडाक्लोप्रिड।",
+          "दलहनी बीज को राइजोबियम कल्चर भी लगाएं - यह जड़ की गांठों में मुफ्त नाइट्रोजन बनाता है।",
+          "बीज हल्का गीला करें, दवा बुरकें, बंद ड्रम या थैले में मिलाएं और छांव में सुखाएं - धूप में कभी नहीं।",
+          "मिलाते समय दस्ताने या डंडी का उपयोग करें, और उपचारित बीज कभी खाने या चारे में न लें।"
+        ]
+      },
+      "source_url": "https://agritech.tnau.ac.in/",
+      "source_name": "TNAU Agritech Portal; ICAR seed treatment guidance"
+    },
+    {
+      "id": "kb-crop-rotation",
+      "category": "production",
+      "priority": 7,
+      "title": {
+        "en": "Crop Rotation: Do Not Give Pests a Permanent Address",
+        "hi": "फसल चक्र: कीटों को स्थायी ठिकाना न दें"
+      },
+      "summary": {
+        "en": "Growing the same crop in the same field year after year builds up its diseases, pests and weeds in the soil. Rotating with a different crop family breaks the cycle and often adds free nitrogen.",
+        "hi": "एक ही खेत में हर साल वही फसल उगाने से उसकी बीमारियां, कीट और खरपतवार मिट्टी में जमा होते जाते हैं। दूसरे कुल की फसल से चक्र टूटता है और अक्सर मुफ्त नाइट्रोजन भी मिलती है।"
+      },
+      "body_points": {
+        "en": [
+          "Rotate crop families, not just crop names: tomato, chilli, brinjal and potato are one family and share wilt and virus problems.",
+          "Adding a pulse (gram, moong, lentil) to the rotation fixes nitrogen and cuts the urea need of the next cereal.",
+          "Wilt-sick chickpea fields and red-rot sugarcane fields recover only after 2-3 years under other crops.",
+          "After rice, a green manure crop like dhaincha ploughed in before flowering adds the equivalent of a bag of urea per acre.",
+          "Plan rotation for the whole village block where possible - pests migrate from a neighbour's host crop."
+        ],
+        "hi": [
+          "फसल का नाम नहीं, कुल बदलें: टमाटर, मिर्च, बैंगन और आलू एक ही कुल के हैं और उकठा व विषाणु रोग साझा करते हैं।",
+          "चक्र में दलहन (चना, मूंग, मसूर) जोड़ने से नाइट्रोजन बनती है और अगली अनाज फसल में यूरिया कम लगता है।",
+          "उकठा लगे चने के खेत और लाल सड़न लगे गन्ने के खेत 2-3 साल दूसरी फसलें लेने पर ही सुधरते हैं।",
+          "धान के बाद ढैंचा जैसी हरी खाद फूल आने से पहले जोतने पर प्रति एकड़ करीब एक बोरी यूरिया के बराबर लाभ देती है।",
+          "जहां हो सके पूरे गांव स्तर पर चक्र की योजना बनाएं - कीट पड़ोसी के खेत से भी आते हैं।"
+        ]
+      },
+      "source_url": "https://icar.org.in/",
+      "source_name": "ICAR cropping systems guidance"
+    },
+    {
+      "id": "kb-intercropping",
+      "category": "production",
+      "priority": 8,
+      "title": {
+        "en": "Intercropping: Two Crops, One Field, Less Risk",
+        "hi": "अंतरवर्तीय खेती: एक खेत, दो फसलें, कम जोखिम"
+      },
+      "summary": {
+        "en": "Growing a second crop between the rows of the main crop insures you against failure, uses land and light fully, and can confuse or trap pests.",
+        "hi": "मुख्य फसल की कतारों के बीच दूसरी फसल उगाना नुकसान के विरुद्ध बीमा है, जमीन और धूप का पूरा उपयोग करता है, और कीटों को भटका या फंसा सकता है।"
+      },
+      "body_points": {
+        "en": [
+          "Proven pairs: maize + moong or cowpea, cotton + moong, sugarcane + potato or onion, gram + coriander or linseed, pigeonpea + sorghum.",
+          "Pick partners with different heights and rooting depths so they do not fight for the same light and water.",
+          "Marigold around tomato and coriander in gram act as trap or guard rows against borers.",
+          "Keep the recommended row ratio (for example 1 row of pulse after every 2 of maize) so the main crop yield is not hurt.",
+          "If one crop fails due to weather or price, the other still pays the season's costs."
+        ],
+        "hi": [
+          "आजमाए जोड़े: मक्का + मूंग या लोबिया, कपास + मूंग, गन्ना + आलू या प्याज, चना + धनिया या अलसी, अरहर + ज्वार।",
+          "अलग ऊंचाई और अलग जड़ गहराई वाले जोड़े चुनें ताकि धूप-पानी के लिए आपस में होड़ न हो।",
+          "टमाटर के चारों ओर गेंदा और चने में धनिया छेदक कीटों के विरुद्ध ट्रैप या रक्षक कतार का काम करते हैं।",
+          "सिफारिश किया कतार अनुपात रखें (जैसे मक्का की हर 2 कतार पर 1 कतार दलहन) ताकि मुख्य फसल की उपज न घटे।",
+          "मौसम या भाव से एक फसल बिगड़े तो दूसरी फसल सीजन का खर्च निकाल देती है।"
+        ]
+      },
+      "source_url": "https://icar.org.in/",
+      "source_name": "ICAR intercropping recommendations"
+    },
+    {
+      "id": "kb-zero-till-wheat",
+      "category": "production",
+      "priority": 9,
+      "title": {
+        "en": "Zero-Till Wheat After Rice: Sow Early, Spend Less, Burn Nothing",
+        "hi": "धान के बाद जीरो टिल गेहूं: जल्दी बुवाई, कम खर्च, पराली जलाना बंद"
+      },
+      "summary": {
+        "en": "Sowing wheat directly into rice stubble with a zero-till or Happy Seeder machine saves 3-4 ploughings, sows 10-15 days earlier, and makes burning unnecessary - with equal or better yield.",
+        "hi": "जीरो टिल या हैप्पी सीडर मशीन से धान की पराली में सीधे गेहूं बोने से 3-4 जुताई बचती है, बुवाई 10-15 दिन पहले होती है और पराली जलाने की जरूरत ही नहीं रहती - उपज बराबर या बेहतर।"
+      },
+      "body_points": {
+        "en": [
+          "Every day of late wheat sowing after mid-November costs yield; zero-till removes the land-preparation delay.",
+          "The standing stubble becomes a mulch that saves the first irrigation and suppresses the weed Phalaris minor.",
+          "Diesel and tillage savings are roughly Rs 2,000-3,000 per acre.",
+          "You do not need to own the machine - Custom Hiring Centres and cooperative societies rent Happy Seeders at subsidised rates.",
+          "Burning stubble destroys soil life and invites fines; zero-till turns the same stubble into an asset."
+        ],
+        "hi": [
+          "मध्य नवंबर के बाद गेहूं की हर दिन देर उपज घटाती है; जीरो टिल से खेत तैयारी की देरी खत्म हो जाती है।",
+          "खड़ी पराली मल्च बन जाती है जो पहली सिंचाई बचाती है और गेहूं का घातक खरपतवार गुल्ली डंडा (मंडूसी) दबाती है।",
+          "डीजल और जुताई की बचत करीब 2,000-3,000 रुपये प्रति एकड़ होती है।",
+          "मशीन खरीदना जरूरी नहीं - कस्टम हायरिंग केंद्र और सहकारी समितियां हैप्पी सीडर सब्सिडी दर पर किराए पर देती हैं।",
+          "पराली जलाने से मिट्टी के जीव मरते हैं और जुर्माना लगता है; जीरो टिल उसी पराली को संपत्ति बना देता है।"
+        ]
+      },
+      "source_url": "https://iiwbr.org.in/",
+      "source_name": "ICAR-IIWBR Karnal resource-conservation guidance"
+    },
+    {
+      "id": "kb-sri-rice",
+      "category": "production",
+      "priority": 10,
+      "title": {
+        "en": "SRI Method of Rice: More Grain from Less Seed and Less Water",
+        "hi": "श्री (SRI) विधि से धान: कम बीज, कम पानी, ज्यादा उपज"
+      },
+      "summary": {
+        "en": "The System of Rice Intensification transplants younger seedlings, one per hill, at wider spacing, with alternate wetting and drying - typically raising yield while using far less seed and water.",
+        "hi": "श्री विधि में कम उम्र की पौध, एक पौधा प्रति स्थान, ज्यादा दूरी पर रोपते हैं और खेत को लगातार डुबाने की बजाय सुखा-गीला रखते हैं - आमतौर पर बीज व पानी बहुत कम लगकर उपज बढ़ती है।"
+      },
+      "body_points": {
+        "en": [
+          "Transplant 8-12 day old seedlings (2 leaves) instead of month-old ones - young roots recover fast and tiller more.",
+          "Plant single seedlings at 25 x 25 cm spacing in a square grid; seed need drops to about 2 kg per acre.",
+          "Do not keep standing water throughout: irrigate, let hairline cracks appear, then irrigate again (alternate wetting and drying).",
+          "Run a cono-weeder between rows every 10 days - it kills weeds and airs the soil, which itself boosts tillering.",
+          "Try SRI on a small patch first and compare with your usual method before scaling up."
+        ],
+        "hi": [
+          "महीने भर की जगह 8-12 दिन (2 पत्ती) की पौध रोपें - छोटी जड़ें तुरंत पकड़ती हैं और ज्यादा कल्ले निकालती हैं।",
+          "25 x 25 सेमी की चौकोर दूरी पर एक-एक पौधा लगाएं; बीज करीब 2 किलो प्रति एकड़ ही लगता है।",
+          "खेत हर समय डुबाकर न रखें: सिंचाई करें, हल्की दरारें आने दें, फिर सिंचाई करें (सुखा-गीला चक्र)।",
+          "हर 10 दिन में कतारों के बीच कोनो वीडर चलाएं - खरपतवार मरते हैं और मिट्टी में हवा जाती है, जिससे कल्ले और बढ़ते हैं।",
+          "पहले छोटे टुकड़े पर श्री विधि आजमाकर अपनी पुरानी विधि से तुलना करें, फिर रकबा बढ़ाएं।"
+        ]
+      },
+      "source_url": "https://agritech.tnau.ac.in/",
+      "source_name": "TNAU Agritech Portal, SRI package"
+    },
+    {
+      "id": "kb-ipm-basics",
+      "category": "treatment",
+      "priority": 11,
+      "title": {
+        "en": "IPM Basics: Spray Last, Not First",
+        "hi": "आईपीएम की मूल बातें: छिड़काव पहला नहीं, आखिरी कदम"
+      },
+      "summary": {
+        "en": "Integrated Pest Management means watching the crop, letting natural enemies work, using traps and cultural tricks first, and spraying only when the pest crosses a damage threshold.",
+        "hi": "एकीकृत कीट प्रबंधन यानी फसल की निगरानी, मित्र कीटों से काम लेना, पहले ट्रैप व खेती के उपाय, और छिड़काव सिर्फ तब जब कीट नुकसान की सीमा पार करे।"
+      },
+      "body_points": {
+        "en": [
+          "Walk the field twice a week and look under leaves - catching a pest early halves the cost of controlling it.",
+          "Learn your friends: ladybird beetles, spiders, dragonflies, Trichogramma wasps and drongo birds kill pests free of charge.",
+          "Use thresholds, not fear: for example mustard aphid is sprayed only at 50-60 aphids per 10 cm shoot; below that, ladybirds handle it.",
+          "First line of defence is cultural: resistant varieties, timely sowing, balanced urea, clean bunds, pheromone traps, sticky traps and bird perches.",
+          "When a spray is truly needed, choose a selective chemical at label dose and rotate chemical groups so resistance does not build.",
+          "Every needless spray kills the natural enemies and brings the pest back stronger - and costs you money."
+        ],
+        "hi": [
+          "हफ्ते में दो बार खेत में घूमें और पत्तियों के नीचे देखें - कीट जल्दी पकड़ने पर नियंत्रण का खर्च आधा रह जाता है।",
+          "मित्रों को पहचानें: लेडीबर्ड (सोनपंखी), मकड़ियां, व्याध पतंगे, ट्राइकोग्रामा ततैया और भुजंगा पक्षी मुफ्त में कीट मारते हैं।",
+          "डर से नहीं, सीमा से छिड़कें: जैसे सरसों का माहू तभी छिड़का जाता है जब ऊपरी 10 सेमी शाखा पर 50-60 माहू हों; उससे कम पर लेडीबर्ड संभाल लेती है।",
+          "पहला बचाव खेती के तरीके हैं: प्रतिरोधी किस्में, समय पर बुवाई, संतुलित यूरिया, साफ मेड़ें, फेरोमोन ट्रैप, चिपचिपे ट्रैप और पक्षी बैठने के डंडे।",
+          "छिड़काव सच में जरूरी हो तो लेबल की मात्रा में चुनिंदा दवा लें और दवा समूह बदलते रहें ताकि प्रतिरोधकता न बने।",
+          "हर गैर-जरूरी छिड़काव मित्र कीट मारकर कीट को और ताकतवर बनाता है - और आपकी जेब भी काटता है।"
+        ]
+      },
+      "source_url": "https://ppqs.gov.in/",
+      "source_name": "Directorate of Plant Protection, Quarantine & Storage (NIPHM/PPQS IPM packages)"
+    },
+    {
+      "id": "kb-safe-pesticide-use",
+      "category": "treatment",
+      "priority": 12,
+      "title": {
+        "en": "Safe Pesticide Use: Protect Yourself Before the Crop",
+        "hi": "कीटनाशक का सुरक्षित उपयोग: फसल से पहले खुद को बचाएं"
+      },
+      "summary": {
+        "en": "Pesticides help only at the right dose, with the right protection, and with the right waiting period before harvest. Careless use poisons the sprayer first.",
+        "hi": "कीटनाशक तभी फायदेमंद हैं जब सही मात्रा, सही सुरक्षा और कटाई से पहले सही प्रतीक्षा अवधि रखी जाए। लापरवाही सबसे पहले छिड़कने वाले को जहर देती है।"
+      },
+      "body_points": {
+        "en": [
+          "Buy only from a licensed dealer, insist on a bill, and check the label, colour triangle and expiry date.",
+          "Never exceed the label dose - a double dose does not kill pests faster, it builds resistance and residue.",
+          "Wear full sleeves, trousers, mask and gloves; do not eat, drink or smoke while spraying; spray with the wind, not against it.",
+          "Spray in the early morning or evening - never in midday heat, and never when the crop is in open flower where bees forage.",
+          "Respect the pre-harvest interval printed on the label (usually 7-15 days) before picking any produce.",
+          "Triple-rinse the empty container into the spray tank, then crush and bury it - never reuse it for food or water, and never wash equipment in ponds or canals."
+        ],
+        "hi": [
+          "दवा सिर्फ लाइसेंसी दुकान से बिल के साथ खरीदें; लेबल, रंग का त्रिकोण और एक्सपायरी जांचें।",
+          "लेबल से ज्यादा मात्रा कभी न डालें - दुगुनी मात्रा कीट जल्दी नहीं मारती, प्रतिरोधकता और जहर के अवशेष बढ़ाती है।",
+          "पूरी बांह के कपड़े, पतलून, मास्क और दस्ताने पहनें; छिड़काव के दौरान खाना-पीना-धूम्रपान न करें; हवा की दिशा में छिड़कें, विपरीत नहीं।",
+          "छिड़काव सुबह या शाम करें - दोपहर की धूप में कभी नहीं, और खुले फूल पर कभी नहीं जब मधुमक्खियां आती हैं।",
+          "लेबल पर लिखी कटाई-पूर्व प्रतीक्षा अवधि (आमतौर पर 7-15 दिन) के बाद ही उपज तोड़ें।",
+          "खाली डिब्बे को तीन बार धोकर वही पानी टंकी में डालें, फिर डिब्बा कुचलकर गाड़ दें - उसे खाने-पीने के लिए कभी इस्तेमाल न करें, और छिड़काव यंत्र तालाब या नहर में न धोएं।"
+        ]
+      },
+      "source_url": "https://ppqs.gov.in/",
+      "source_name": "Directorate of Plant Protection, Quarantine & Storage, Govt. of India"
+    },
+    {
+      "id": "kb-kitchen-garden",
+      "category": "horticulture",
+      "priority": 13,
+      "title": {
+        "en": "Kitchen Garden: A Year of Vegetables from One Katha",
+        "hi": "पोषण वाटिका: एक कट्ठे से साल भर की सब्जी"
+      },
+      "summary": {
+        "en": "A small well-planned plot near the house can supply a family's vegetables all year, cut the grocery bill, and improve nutrition - especially for children and mothers.",
+        "hi": "घर के पास छोटा सा नियोजित टुकड़ा परिवार को साल भर सब्जी दे सकता है, राशन खर्च घटाता है और खासकर बच्चों व माताओं का पोषण सुधारता है।"
+      },
+      "body_points": {
+        "en": [
+          "Choose a sunny spot near the house so kitchen and bath water (without soap) can irrigate it.",
+          "Divide into small beds and rotate: leafy greens every 30-40 days, plus tomato, brinjal, chilli, okra, gourds on the fence, and root crops in between.",
+          "Plan sowing so something is ready every month - a simple seasonal calendar from your KVK covers the whole year.",
+          "Use compost and neem-based sprays; a home garden is the easiest place to grow nearly chemical-free food.",
+          "Add papaya, drumstick (moringa) and curry leaf on the border - they give food for years with almost no care.",
+          "Many state horticulture missions and KVKs distribute free or subsidised kitchen-garden seed kits."
+        ],
+        "hi": [
+          "घर के पास धूप वाली जगह चुनें ताकि रसोई-स्नान का (बिना साबुन वाला) पानी सिंचाई में लग सके।",
+          "छोटी क्यारियां बनाकर बदल-बदल कर लगाएं: हर 30-40 दिन में पत्तेदार सब्जियां, साथ में टमाटर, बैंगन, मिर्च, भिंडी, बाड़ पर लौकी-करेला और बीच में जड़ वाली सब्जियां।",
+          "बुवाई ऐसी बांटें कि हर महीने कुछ न कुछ तैयार रहे - कृषि विज्ञान केंद्र से मौसमी कैलेंडर मिल जाता है।",
+          "कम्पोस्ट और नीम आधारित छिड़काव अपनाएं; घर की बगिया लगभग रसायन-मुक्त सब्जी उगाने की सबसे आसान जगह है।",
+          "किनारे पर पपीता, सहजन और कड़ी पत्ता लगाएं - ये बिना खास देखभाल के सालों तक भोजन देते हैं।",
+          "कई राज्य उद्यानिकी मिशन और केवीके मुफ्त या सब्सिडी पर पोषण वाटिका बीज किट देते हैं।"
+        ]
+      },
+      "source_url": "https://vikaspedia.in/agriculture",
+      "source_name": "Vikaspedia nutrition garden guidance; ICAR-KVK kits"
+    },
+    {
+      "id": "kb-post-harvest-storage",
+      "category": "market",
+      "priority": 14,
+      "title": {
+        "en": "Post-Harvest Storage: Do Not Lose at Home What You Grew in the Field",
+        "hi": "कटाई बाद भंडारण: खेत में उगाया, घर में न गंवाएं"
+      },
+      "summary": {
+        "en": "Up to a tenth of grain is lost to moisture, insects and rats after harvest. Proper drying and airtight storage protect both your food and your bargaining power to sell later at a better price.",
+        "hi": "कटाई के बाद नमी, कीड़ों और चूहों से दसवां हिस्सा तक अनाज बर्बाद हो जाता है। सही सुखाई और हवाबंद भंडारण आपका भोजन भी बचाता है और बाद में अच्छे भाव पर बेचने की ताकत भी देता है।"
+      },
+      "body_points": {
+        "en": [
+          "Dry grain to safe moisture before storing: bite a grain - it should crack, not dent. Wheat and rice store safely near 10-12% moisture.",
+          "Store in airtight metal bins or hermetic (Super) bags - sealed storage suffocates insects without any chemical.",
+          "Clean the store first, and keep bags on wooden planks away from walls, never on the bare floor.",
+          "Mix dried neem leaves with small home lots of pulses; never use loose pesticide powders on grain you will eat.",
+          "A Warehousing (WDRA) receipt from a registered godown lets you take a bank loan against stored produce instead of distress-selling at harvest.",
+          "Check stored grain every fortnight for heating, smell or webbing and sun-dry again if needed."
+        ],
+        "hi": [
+          "भंडारण से पहले अनाज सुरक्षित नमी तक सुखाएं: दांत से काटने पर दाना कट की आवाज से टूटे, दबे नहीं। गेहूं-चावल करीब 10-12% नमी पर सुरक्षित रहते हैं।",
+          "हवाबंद धातु की टंकी या हरमेटिक (सुपर) बैग में रखें - बंद भंडारण बिना किसी दवा के कीड़ों का दम घोंट देता है।",
+          "भंडार पहले साफ करें; बोरे लकड़ी के पटरों पर, दीवार से हटाकर रखें, नंगे फर्श पर कभी नहीं।",
+          "घर की दाल में सूखी नीम पत्तियां मिलाएं; खाने वाले अनाज पर खुला कीटनाशक पाउडर कभी न डालें।",
+          "पंजीकृत गोदाम की डब्ल्यूडीआरए रसीद पर बैंक से कर्ज मिल जाता है, जिससे कटाई पर मजबूरी में सस्ता बेचना नहीं पड़ता।",
+          "हर पखवाड़े अनाज की गर्मी, बदबू या जाले जांचें और जरूरत पर फिर धूप दिखाएं।"
+        ]
+      },
+      "source_url": "https://agritech.tnau.ac.in/",
+      "source_name": "TNAU Agritech post-harvest technology; WDRA (wdra.gov.in)"
+    },
+    {
+      "id": "kb-pmkisan-enrolment",
+      "category": "market",
+      "priority": 15,
+      "title": {
+        "en": "PM-KISAN: How to Enrol and Keep Your Rs 6,000 Coming",
+        "hi": "पीएम-किसान: नामांकन कैसे करें और 6,000 रुपये आते कैसे रहें"
+      },
+      "summary": {
+        "en": "Every landholding farmer family can get Rs 6,000 a year in three instalments. Most stopped payments are due to pending eKYC, Aadhaar-bank mismatch or land-record issues - all fixable.",
+        "hi": "जमीन वाले हर किसान परिवार को साल के 6,000 रुपये तीन किस्तों में मिल सकते हैं। रुकी किस्तों की ज्यादातर वजह अधूरा ईकेवाईसी, आधार-बैंक बेमेल या जमीन रिकॉर्ड की दिक्कत है - सब सुधारी जा सकती हैं।"
+      },
+      "body_points": {
+        "en": [
+          "Register once at pmkisan.gov.in (New Farmer Registration) or any Common Service Centre with Aadhaar, bank passbook and land record (khatauni/khasra).",
+          "Complete eKYC - OTP on the portal, or fingerprint/face at the CSC. Without eKYC the instalment stops.",
+          "Your bank account must be Aadhaar-seeded (linked for DBT); ask your bank branch to enable it.",
+          "Income-tax payers, government employees/pensioners (Rs 10,000+ monthly pension) and professionals are not eligible - do not enrol if excluded, recoveries do happen.",
+          "Track every instalment under 'Know Your Status' on the portal using your registration number.",
+          "Never pay anyone for enrolment and never share OTP - enrolment is free and OTP fraud is common."
+        ],
+        "hi": [
+          "pmkisan.gov.in पर 'New Farmer Registration' से या किसी जन सेवा केंद्र पर आधार, बैंक पासबुक और जमीन के कागज (खतौनी/खसरा) के साथ एक बार पंजीकरण करें।",
+          "ईकेवाईसी पूरा करें - पोर्टल पर ओटीपी से, या सीएससी पर अंगूठे/चेहरे से। बिना ईकेवाईसी किस्त रुक जाती है।",
+          "बैंक खाता आधार से जुड़ा (डीबीटी सक्षम) होना चाहिए; अपनी शाखा से करवा लें।",
+          "आयकरदाता, सरकारी कर्मचारी/पेंशनभोगी (10,000 रुपये+ मासिक पेंशन) और डॉक्टर-वकील जैसे पेशेवर पात्र नहीं हैं - अपात्र होने पर नामांकन न करें, वसूली भी होती है।",
+          "हर किस्त पोर्टल पर 'Know Your Status' में अपने पंजीकरण नंबर से देखें।",
+          "नामांकन के लिए किसी को पैसा न दें और ओटीपी किसी से साझा न करें - नामांकन मुफ्त है और ओटीपी ठगी आम है।"
+        ]
+      },
+      "source_url": "https://pmkisan.gov.in/",
+      "source_name": "PM-KISAN portal, Govt. of India"
+    },
+    {
+      "id": "kb-enam-selling",
+      "category": "market",
+      "priority": 16,
+      "title": {
+        "en": "Selling on e-NAM: Let Buyers Compete for Your Produce",
+        "hi": "ई-नाम पर बिक्री: खरीदारों को आपकी उपज के लिए होड़ करने दें"
+      },
+      "summary": {
+        "en": "On the national online mandi, traders from across India bid on your graded produce, prices are transparent, and payment comes straight to your bank account.",
+        "hi": "राष्ट्रीय ऑनलाइन मंडी पर देशभर के व्यापारी आपकी ग्रेड की गई उपज पर बोली लगाते हैं, भाव पारदर्शी होते हैं और भुगतान सीधे बैंक खाते में आता है।"
+      },
+      "body_points": {
+        "en": [
+          "Register free on enam.gov.in or the e-NAM app with Aadhaar, bank details and a photo; more than 1,500 mandis are connected.",
+          "Bring produce to your nearest e-NAM mandi for quality assaying (grading) - graded lots attract distant buyers and better bids.",
+          "Watch the live bids on your phone and accept only if the best bid beats your local price.",
+          "Clean, dry, uniform produce in good bags routinely earns a premium over mixed loose lots.",
+          "Check the day's mandi prices on the app before you travel - sometimes the local mandi already pays as well as the online bid.",
+          "FPO members can aggregate lots and sell bigger volumes, which pulls in serious buyers."
+        ],
+        "hi": [
+          "enam.gov.in या ई-नाम ऐप पर आधार, बैंक विवरण और फोटो से मुफ्त पंजीकरण करें; 1,500 से अधिक मंडियां जुड़ चुकी हैं।",
+          "उपज नजदीकी ई-नाम मंडी में गुणवत्ता जांच (ग्रेडिंग) के लिए ले जाएं - ग्रेडेड ढेरी पर दूर के खरीदार बेहतर बोली लगाते हैं।",
+          "फोन पर चल रही बोलियां देखें और तभी स्वीकारें जब सबसे अच्छी बोली स्थानीय भाव से बेहतर हो।",
+          "साफ, सूखी, एक जैसी उपज अच्छे बोरों में मिली-जुली ढीली उपज से हमेशा अच्छा दाम पाती है।",
+          "जाने से पहले ऐप पर उस दिन के मंडी भाव देखें - कई बार स्थानीय मंडी भी उतना ही दे रही होती है।",
+          "एफपीओ सदस्य मिलकर बड़ी मात्रा में बेच सकते हैं, जिससे बड़े खरीदार आकर्षित होते हैं।"
+        ]
+      },
+      "source_url": "https://enam.gov.in/web/",
+      "source_name": "e-NAM portal, Govt. of India"
+    }
+  ]
+}

@@ -31,6 +31,7 @@ from agrotech_ml.models.schemas import (
     RentalTool,
     SchemeItem,
     SchemeRecommendationRequest,
+    SchemeResponse,
     SearchResultItem,
     UserProfile,
     UserProfileCreate,
@@ -553,7 +554,18 @@ def _myscheme_eligibility(details: dict) -> str:
     )
 
 
-def recommend_schemes(settings: AppSettings, payload: SchemeRecommendationRequest) -> list[SchemeItem]:
+def _upstream_scheme_items(
+    settings: AppSettings, payload: SchemeRecommendationRequest
+) -> list[SchemeItem]:
+    """Live MyScheme recommendations. Empty when the API key is unset or dead.
+
+    The public MyScheme endpoints answer 401 without an x-api-key, so when no
+    key is configured we skip the round-trips entirely instead of burning a
+    request per keyword just to collect failures.
+    """
+    if not settings.myscheme_api_key:
+        return []
+
     keywords = ["farmer agriculture scheme"]
     if payload.farmer_type in {"small", "marginal"}:
         keywords.append("farmer subsidy insurance credit")
@@ -618,6 +630,220 @@ def recommend_schemes(settings: AppSettings, payload: SchemeRecommendationReques
             if len(items) >= 6:
                 return items
     return items
+
+
+SCHEMES_CATALOG_PATH = Path(__file__).resolve().parents[3] / "data" / "schemes_catalog.json"
+
+
+def _catalog_text(value: object, language: LanguageCode) -> str:
+    """Pick the language variant from a ``{"en": ..., "hi": ...}`` block.
+
+    The committed catalogue carries native English and Hindi text; other
+    languages fall back to English (the caller may translate further).
+    """
+    if isinstance(value, dict):
+        for candidate in (language, "en"):
+            text = value.get(candidate)
+            if isinstance(text, str) and text.strip():
+                return text.strip()
+            if isinstance(text, list):
+                joined = " ".join(str(part).strip() for part in text if str(part).strip())
+                if joined:
+                    return joined
+        return ""
+    return str(value or "").strip()
+
+
+def _builtin_catalog_scheme_rows(
+    settings: AppSettings, payload: SchemeRecommendationRequest
+) -> list[dict]:
+    """Insurance reader for ``data/schemes_catalog.json``.
+
+    Only used when :mod:`agrotech_ml.services.schemes_catalog` (the primary
+    owner of the catalogue logic) cannot be imported or fails. Applies the
+    same eligibility filters the request describes and returns
+    ``SchemeItem``-shaped dicts.
+    """
+    with SCHEMES_CATALOG_PATH.open(encoding="utf-8") as handle:
+        catalog = json.load(handle)
+
+    verified_date = str(catalog.get("verified_date") or "").strip()
+    language = payload.language
+    needs_translation = language not in {"en", "hi"}
+    normalized_state = _normalize_state(payload.state) if payload.state else ""
+
+    rows: list[dict] = []
+    for entry in sorted(
+        catalog.get("schemes", []), key=lambda item: item.get("priority", 999)
+    ):
+        eligibility = entry.get("eligibility") or {}
+
+        farmer_types = eligibility.get("farmer_types") or []
+        if farmer_types and payload.farmer_type not in farmer_types:
+            continue
+        max_land = eligibility.get("max_land_acres")
+        if max_land is not None and payload.land_size_acres > float(max_land):
+            continue
+        max_income = eligibility.get("max_annual_income_lakh")
+        if max_income is not None and payload.annual_income_lakh > float(max_income):
+            continue
+        states = eligibility.get("states")
+        if (
+            normalized_state
+            and normalized_state != "india"
+            and isinstance(states, list)
+            and states
+        ):
+            state_match = any(
+                _normalize_state(str(s)) in {normalized_state, "all"}
+                or normalized_state in _normalize_state(str(s))
+                for s in states
+            )
+            if not state_match:
+                continue
+
+        title = _catalog_text(entry.get("name"), language)
+        description = _catalog_text(entry.get("what_you_get"), language)
+        eligibility_text = _catalog_text((eligibility.get("notes") or {}), language)
+        if needs_translation:
+            title = _translate_value(settings, title, language)
+            description = _translate_value(settings, description, language)
+            eligibility_text = _translate_value(settings, eligibility_text, language)
+
+        source_label = "Official catalogue"
+        if verified_date:
+            source_label = f"Official catalogue (verified {verified_date})"
+
+        rows.append(
+            {
+                "id": str(entry.get("id") or ""),
+                "title": title,
+                "description": description,
+                "eligibility": eligibility_text
+                or "Check the official scheme page for the latest eligibility conditions.",
+                "link": str(entry.get("source_url") or "https://www.myscheme.gov.in/"),
+                "source": source_label,
+            }
+        )
+    return rows
+
+
+def _catalog_scheme_items(
+    settings: AppSettings, payload: SchemeRecommendationRequest
+) -> list[SchemeItem]:
+    """Recommendations from the committed offline catalogue.
+
+    Delegates to :mod:`agrotech_ml.services.schemes_catalog`, which owns the
+    verified ``data/schemes_catalog.json`` content and its request filtering.
+    If that module is unavailable or errors, a minimal built-in reader for the
+    same committed JSON keeps the endpoint from ever going silently empty.
+    Never raises: schemes are a flagship social feature, and a catalogue bug
+    must degrade to fewer results, not a 500.
+    """
+    rows: list[dict] | None = None
+    try:
+        from agrotech_ml.services.schemes_catalog import recommend_from_catalog
+
+        rows = recommend_from_catalog(
+            farmer_type=payload.farmer_type,
+            land_size_acres=payload.land_size_acres,
+            annual_income_lakh=payload.annual_income_lakh,
+            state=payload.state,
+            language=payload.language,
+            limit=MAX_SCHEME_RESULTS,
+        )
+    except Exception as exc:  # noqa: BLE001 - fall through to the built-in reader
+        logger.warning("schemes_catalog module unavailable (%s); using built-in reader", exc)
+
+    if rows is None:
+        try:
+            rows = _builtin_catalog_scheme_rows(settings, payload)
+        except Exception as exc:  # noqa: BLE001 - degrade, never break the endpoint
+            logger.error("Offline scheme catalogue unavailable: %s", exc)
+            return []
+
+    # The catalogue stores native en/hi text; any other language goes through
+    # the translation layer (a no-op when translation is not configured).
+    translate = payload.language not in {"en", "hi"}
+
+    items: list[SchemeItem] = []
+    for row in rows:
+        try:
+            item = SchemeItem.model_validate(row)
+        except Exception as exc:  # noqa: BLE001 - skip malformed rows, keep the rest
+            logger.warning("Skipping malformed catalogue scheme row: %s", exc)
+            continue
+        if translate:
+            item.title = _translate_value(settings, item.title, payload.language)
+            item.description = _translate_value(settings, item.description, payload.language)
+            item.eligibility = _translate_value(settings, item.eligibility, payload.language)
+            item.how_to_apply = [
+                _translate_value(settings, step, payload.language)
+                for step in item.how_to_apply
+            ]
+        items.append(item)
+    return items
+
+
+MAX_SCHEME_RESULTS = 12
+
+_SCHEME_SOURCE_NOTES = {
+    "myscheme_live": "Live matches from the official myScheme portal.",
+    "official_catalog": (
+        "Shown from the official scheme catalogue maintained with this app "
+        "and verified against government sources. Confirm the latest rules "
+        "on each scheme's official page."
+    ),
+    "myscheme_live+official_catalog": (
+        "Live myScheme matches, topped up from the verified official scheme "
+        "catalogue maintained with this app."
+    ),
+}
+
+
+def recommend_schemes(
+    settings: AppSettings, payload: SchemeRecommendationRequest
+) -> SchemeResponse:
+    """Scheme recommendations that are never silently empty.
+
+    Order of preference: live MyScheme results (only possible when an API key
+    is configured), merged with — or replaced by — the committed offline
+    catalogue filtered by the farmer's profile. The response carries a
+    ``source`` label and human ``note`` so the UI can say where the
+    recommendations came from.
+    """
+    upstream = _upstream_scheme_items(settings, payload)
+    catalog = _catalog_scheme_items(settings, payload)
+
+    seen_titles = {item.title.strip().lower() for item in upstream}
+    seen_ids = {item.id for item in upstream}
+    merged = list(upstream)
+    for item in catalog:
+        if item.id in seen_ids or item.title.strip().lower() in seen_titles:
+            continue
+        merged.append(item)
+        seen_ids.add(item.id)
+        seen_titles.add(item.title.strip().lower())
+        if len(merged) >= MAX_SCHEME_RESULTS:
+            break
+
+    if upstream and len(merged) > len(upstream):
+        source = "myscheme_live+official_catalog"
+    elif upstream:
+        source = "myscheme_live"
+    elif merged:
+        source = "official_catalog"
+    else:
+        # Catalogue filtering can legitimately produce nothing only for very
+        # unusual inputs; say so honestly instead of blaming the farmer.
+        source = "official_catalog"
+
+    note = _SCHEME_SOURCE_NOTES[source]
+    return SchemeResponse(
+        schemes=merged,
+        source=source,
+        note=_translate_value(settings, note, payload.language),
+    )
 
 
 def rental_tools(
@@ -807,26 +1033,114 @@ def _knowledge_category(title: str, summary: str) -> str:
     return "production"
 
 
+_KNOWLEDGE_CATEGORIES = {"production", "treatment", "horticulture", "soil", "market"}
+
+
+def _local_knowledge_articles(
+    settings: AppSettings,
+    language: LanguageCode,
+    *,
+    query: str | None = None,
+) -> list[KnowledgeArticle]:
+    """Articles from the committed local library. Empty only when it fails.
+
+    Delegates to :mod:`agrotech_ml.services.knowledge_catalog`, which owns the
+    curated ``data/knowledge_library.json`` content (native en/hi). Rows
+    arrive ``KnowledgeArticle``-shaped; other languages are translated here
+    (a no-op when translation is not configured).
+    """
+    try:
+        from agrotech_ml.services.knowledge_catalog import (
+            knowledge_articles,
+            search_articles,
+        )
+
+        if query and query.strip():
+            rows = search_articles(query, language=language, limit=12)
+        else:
+            rows = knowledge_articles(language)
+    except Exception as exc:  # noqa: BLE001 - the web fallback below still runs
+        logger.warning("Local knowledge library unavailable: %s", exc)
+        return []
+
+    translate = language not in {"en", "hi"}
+    articles: list[KnowledgeArticle] = []
+    for row in rows:
+        try:
+            data = dict(row)
+            if data.get("category") not in _KNOWLEDGE_CATEGORIES:
+                data["category"] = _knowledge_category(
+                    str(data.get("title") or ""), str(data.get("summary") or "")
+                )
+            article = KnowledgeArticle.model_validate(data)
+        except Exception as exc:  # noqa: BLE001 - skip malformed rows, keep the rest
+            logger.warning("Skipping malformed knowledge article: %s", exc)
+            continue
+        if translate:
+            article.title = _translate_value(settings, article.title, language)
+            article.summary = _translate_value(settings, article.summary, language)
+            article.body_points = [
+                _translate_value(settings, point, language)
+                for point in article.body_points
+            ]
+        articles.append(article)
+    return articles
+
+
 async def localize_knowledge_library(
     settings: AppSettings,
     language: LanguageCode,
     *,
     query: str | None = None,
 ) -> list[KnowledgeArticle]:
+    """Knowledge library backed by committed local content.
+
+    The curated local library is the primary source, so the page works with
+    zero external dependencies. When a Brave Search API key is configured and
+    the farmer typed a query, a few live web results are appended as optional
+    enrichment. The legacy web-search flow remains only as a last resort when
+    the local library cannot be loaded at all.
+    """
+    articles = _local_knowledge_articles(settings, language, query=query)
+
+    enrichment_limit = 4
+    if articles and query and settings.brave_search_api_key:
+        try:
+            results = await search_knowledge(
+                settings, query=query, language=language, limit=enrichment_limit
+            )
+            for i, res in enumerate(results):
+                articles.append(
+                    KnowledgeArticle(
+                        id=f"web-{i}",
+                        category=_knowledge_category(res.title, res.summary),
+                        title=res.title,
+                        summary=res.summary,
+                        url=res.url,
+                        source=res.source,
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001 - enrichment is strictly optional
+            logger.info("Knowledge enrichment search failed: %s", exc)
+
+    if articles:
+        return articles
+
+    # Last resort: the old live-search behaviour, so the page still renders
+    # something when the local library is missing or unreadable.
     search_query = query or "soil health irrigation pest management agriculture India"
     results = await search_knowledge(settings, query=search_query, language=language, limit=12)
-    
-    articles = []
-    for i, res in enumerate(results):
-        articles.append(KnowledgeArticle(
+    return [
+        KnowledgeArticle(
             id=f"kb-{i}",
             category=_knowledge_category(res.title, res.summary),
             title=res.title,
             summary=res.summary,
             url=res.url,
-            source=res.source
-        ))
-    return articles
+            source=res.source,
+        )
+        for i, res in enumerate(results)
+    ]
 
 
 async def fetch_weather(
@@ -967,6 +1281,115 @@ async def search_knowledge(
     return localized_results
 
 
+# ---------------------------------------------------------------------------
+# Evergreen news fallback
+#
+# When the live Google News RSS feed is unreachable (or answers with nothing),
+# the farmer should still see useful, real destinations instead of an error.
+# Every link below was verified reachable (HTTP 200) and its page title checked
+# on 2026-08-27; each entry points at a permanent official government portal,
+# not at a dated article, so the content cannot go stale the way a cached
+# headline would. Rows are served with ``is_fallback=True`` so the UI can label
+# them clearly as standing resources rather than today's news.
+# ---------------------------------------------------------------------------
+EVERGREEN_AGRI_NEWS: list[dict[str, str]] = [
+    {
+        "title": "Government press releases on agriculture (PIB)",
+        "summary": (
+            "Official announcements from the Government of India, including "
+            "the Ministry of Agriculture and Farmers Welfare: new schemes, "
+            "MSP decisions and crop advisories, published daily."
+        ),
+        "url": "https://pib.gov.in/allRel.aspx",
+        "source": "Press Information Bureau",
+    },
+    {
+        "title": "Department of Agriculture and Farmers Welfare portal",
+        "summary": (
+            "Central portal for farmer schemes, seasonal guidelines and "
+            "programme updates from the Ministry of Agriculture and Farmers "
+            "Welfare, Government of India."
+        ),
+        "url": "https://agriwelfare.gov.in/",
+        "source": "Ministry of Agriculture & Farmers Welfare",
+    },
+    {
+        "title": "Kisan Call Centre: free expert advice on 1800-180-1551",
+        "summary": (
+            "Call the toll-free Kisan Call Centre number 1800-180-1551 to "
+            "speak with an agricultural expert in your own language, any day "
+            "from 6 AM to 10 PM."
+        ),
+        "url": "https://dackkms.gov.in/",
+        "source": "Kisan Call Centre (Govt. of India)",
+    },
+    {
+        "title": "Weather and agromet advisories from IMD",
+        "summary": (
+            "District-level forecasts, rainfall warnings and crop-weather "
+            "advisories from the India Meteorological Department."
+        ),
+        "url": "https://mausam.imd.gov.in/",
+        "source": "India Meteorological Department",
+    },
+    {
+        "title": "PM-KISAN: check your instalment status",
+        "summary": (
+            "Rs 6,000 per year income support for landholding farmer "
+            "families. Register or check your payment status on the official "
+            "PM-KISAN portal."
+        ),
+        "url": "https://pmkisan.gov.in/",
+        "source": "PM-KISAN Portal",
+    },
+    {
+        "title": "Live mandi prices on Agmarknet",
+        "summary": (
+            "Daily wholesale prices and arrivals for crops across APMC "
+            "mandis in India, published by the Directorate of Marketing and "
+            "Inspection."
+        ),
+        "url": "https://agmarknet.gov.in/",
+        "source": "Agmarknet",
+    },
+    {
+        "title": "Sell produce online through eNAM",
+        "summary": (
+            "The National Agriculture Market (eNAM) connects APMC mandis "
+            "online so farmers can get competitive bids for their produce."
+        ),
+        "url": "https://enam.gov.in/",
+        "source": "eNAM",
+    },
+    {
+        "title": "Get your Soil Health Card",
+        "summary": (
+            "Free soil testing and fertilizer recommendations for your field "
+            "under the Soil Health Card scheme. Find your nearest soil "
+            "testing lab on the portal."
+        ),
+        "url": "https://soilhealth.dac.gov.in/",
+        "source": "Soil Health Card Portal",
+    },
+]
+
+
+def _evergreen_news(settings: AppSettings, language: LanguageCode, limit: int) -> list[NewsItem]:
+    items: list[NewsItem] = []
+    for entry in EVERGREEN_AGRI_NEWS[: max(1, limit)]:
+        items.append(
+            NewsItem(
+                title=_translate_value(settings, entry["title"], language),
+                summary=_translate_value(settings, entry["summary"], language),
+                url=entry["url"],
+                source=entry["source"],
+                published_at=None,
+                is_fallback=True,
+            )
+        )
+    return items
+
+
 async def fetch_news_feed(
     settings: AppSettings,
     *,
@@ -974,36 +1397,48 @@ async def fetch_news_feed(
     language: LanguageCode,
     limit: int = 6,
 ) -> list[NewsItem]:
+    """Live agri headlines, falling back to committed evergreen resources.
+
+    Never returns an empty list and never raises for upstream failures: when
+    the Google News RSS feed is down or yields nothing, the verified
+    ``EVERGREEN_AGRI_NEWS`` entries are served with ``is_fallback=True``.
+    """
     rss_url = (
         "https://news.google.com/rss/search"
         f"?q={quote(query)}&hl=en-IN&gl=IN&ceid=IN:en"
     )
 
-    async with httpx.AsyncClient(timeout=_get_timeout(settings)) as client:
-        response = await client.get(rss_url)
-        response.raise_for_status()
-        raw_xml = response.text
-
-    root = ElementTree.fromstring(raw_xml)
-    items = root.findall("./channel/item")[:limit]
     headlines: list[NewsItem] = []
-    for item in items:
-        title = item.findtext("title", default="")
-        link = item.findtext("link", default="")
-        source = item.findtext("source", default="Google News")
-        published_at_raw = item.findtext("pubDate")
-        published_at = parsedate_to_datetime(published_at_raw) if published_at_raw else None
-        summary = title.rsplit(" - ", 1)[0] if " - " in title else title
-        headlines.append(
-            NewsItem(
-                title=_translate_value(settings, title, language),
-                summary=_translate_value(settings, summary, language),
-                url=link,
-                source=source,
-                published_at=published_at,
+    try:
+        async with httpx.AsyncClient(timeout=_get_timeout(settings)) as client:
+            response = await client.get(rss_url)
+            response.raise_for_status()
+            raw_xml = response.text
+
+        root = ElementTree.fromstring(raw_xml)
+        items = root.findall("./channel/item")[:limit]
+        for item in items:
+            title = item.findtext("title", default="")
+            link = item.findtext("link", default="")
+            source = item.findtext("source", default="Google News")
+            published_at_raw = item.findtext("pubDate")
+            published_at = parsedate_to_datetime(published_at_raw) if published_at_raw else None
+            summary = title.rsplit(" - ", 1)[0] if " - " in title else title
+            headlines.append(
+                NewsItem(
+                    title=_translate_value(settings, title, language),
+                    summary=_translate_value(settings, summary, language),
+                    url=link,
+                    source=source,
+                    published_at=published_at,
+                )
             )
-        )
-    return headlines
+    except Exception as exc:  # noqa: BLE001 - a dead news feed must not 502
+        logger.warning("Live news feed failed (%s); serving evergreen fallback", exc)
+
+    if headlines:
+        return headlines
+    return _evergreen_news(settings, language, limit)
 
 
 def _scheme_facet_probe(settings: AppSettings, timeout: float) -> bool:

@@ -75,8 +75,14 @@ export function CropIntelligencePage() {
     );
   }
 
-  const topPick = result?.recommendations[0];
-  const alternates = result?.recommendations.slice(1) ?? [];
+  // The model always returns 3 rows and pads with probability-0 crops, so a
+  // farmer could see "Best match: 0%" on a crop the model does NOT recommend.
+  // Only rows with a real, non-zero probability are worth showing.
+  const recommendations = (result?.recommendations ?? []).filter(
+    (item) => item.probability >= 0.01
+  );
+  const topPick = recommendations[0];
+  const alternates = recommendations.slice(1);
 
   return (
     <div className="page-container">
@@ -127,7 +133,7 @@ export function CropIntelligencePage() {
             <h3 className="section-title mb-0">{t("crop.outputTitle")}</h3>
             {result && (
               <span className="badge badge-success">
-                {result.recommendations.length} {t("common.results")}
+                {recommendations.length} {t("common.results")}
               </span>
             )}
           </div>

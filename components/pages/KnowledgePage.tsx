@@ -145,6 +145,14 @@ export function KnowledgePage() {
 
                   <p className="tips-content">{article.summary}</p>
 
+                  {/* Optional provenance/fallback note from the API (e.g. when
+                      live search is down and saved articles are served). */}
+                  {(article.source_note || article.source) && (
+                    <p style={{ fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
+                      {article.source_note ?? article.source}
+                    </p>
+                  )}
+
                   {article.url && (
                     <a
                       href={article.url}

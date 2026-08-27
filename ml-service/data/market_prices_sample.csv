@@ -1,6 +1,25 @@
 date,crop,mandi,state,modal_price_inr_quintal,trend
-2026-03-10,Wheat,Azadpur,Delhi,2475,up
-2026-03-10,Rice,Karnal,Haryana,3150,stable
-2026-03-10,Maize,Nizamabad,Telangana,2120,up
-2026-03-10,Cotton,Rajkot,Gujarat,6980,down
-2026-03-10,Chickpea,Indore,Madhya Pradesh,5350,up
+2026-08-26,Wheat,Khanna,Punjab,2600,stable
+2026-08-26,Wheat,Karnal,Haryana,2900,stable
+2026-08-26,Wheat,Indore,Madhya Pradesh,2500,stable
+2026-08-26,Rice,Karnal,Haryana,3800,stable
+2026-08-26,Rice,Amritsar,Punjab,3400,stable
+2026-08-26,Rice,Jorhat,Assam,4200,stable
+2026-08-26,Potato,Agra,Uttar Pradesh,800,down
+2026-08-26,Potato,Jalandhar,Punjab,900,down
+2026-08-26,Potato,Sheoraphuli,West Bengal,750,down
+2026-08-26,Tomato,Kolar,Karnataka,1900,down
+2026-08-26,Tomato,Madanapalle,Andhra Pradesh,2100,down
+2026-08-26,Tomato,Pimpalgaon,Maharashtra,2200,down
+2026-08-26,Onion,Lasalgaon,Maharashtra,4100,up
+2026-08-26,Onion,Bengaluru,Karnataka,4300,up
+2026-08-26,Onion,Indore,Madhya Pradesh,3900,up
+2026-08-26,Chilli,Guntur,Andhra Pradesh,2600,stable
+2026-08-26,Chilli,Raipur,Chhattisgarh,2400,stable
+2026-08-26,Chilli,Surat,Gujarat,2500,stable
+2026-08-26,Cotton,Rajkot,Gujarat,6900,stable
+2026-08-26,Cotton,Adilabad,Telangana,7100,stable
+2026-08-26,Cotton,Sirsa,Haryana,6800,stable
+2026-08-26,Maize,Nizamabad,Telangana,1900,down
+2026-08-26,Maize,Davangere,Karnataka,2000,down
+2026-08-26,Maize,Chhindwara,Madhya Pradesh,1800,down

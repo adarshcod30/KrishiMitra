@@ -325,9 +325,53 @@ def _load_crop_artifact(model_path: str) -> dict[str, Any]:
     return joblib.load(model_path)
 
 
-@lru_cache(maxsize=1)
-def _load_disease_artifact(model_path: str) -> dict[str, Any]:
-    return joblib.load(model_path)
+# The disease artifact is cached by (path, mtime) rather than lru_cache so a
+# retrain that rewrites the file is picked up, and a legacy artifact (the old
+# toy model without the treatment/prevention library) is transparently
+# replaced by retraining from the committed CSV - a sub-second job.
+_disease_bundle_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def _artifact_mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return -1.0
+
+
+def _load_disease_bundle(settings: AppSettings) -> dict[str, Any]:
+    path = settings.disease_model_path
+    key = str(path)
+    mtime = _artifact_mtime(path)
+    cached = _disease_bundle_cache.get(key)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+
+    payload: dict[str, Any] | None = None
+    if path.is_file():
+        try:
+            payload = joblib.load(path)
+        except Exception:  # noqa: BLE001 - a corrupt artifact heals below
+            logger.warning("Disease artifact at %s unreadable; rebuilding from CSV", path)
+            payload = None
+
+    if not isinstance(payload, dict) or "library" not in payload:
+        # Legacy or missing artifact: rebuild from the curated symptom CSV so
+        # diagnoses always carry dataset-sourced treatment and prevention.
+        try:
+            from agrotech_ml.services.train import train_disease_model
+
+            payload = train_disease_model(settings)
+            mtime = _artifact_mtime(path)
+        except Exception as exc:  # noqa: BLE001 - keep serving with the legacy model
+            logger.warning("Disease CSV retrain failed (%s); using legacy artifact", exc)
+            if not isinstance(payload, dict):
+                raise ModelArtifactsMissing(
+                    f"Disease model unavailable at {path} and CSV retrain failed: {exc}"
+                ) from exc
+
+    _disease_bundle_cache[key] = (mtime, payload)
+    return payload
 
 
 @lru_cache(maxsize=1)
@@ -342,9 +386,33 @@ def _load_irrigation_artifact(model_path: str) -> dict[str, Any]:
 
 def clear_artifact_cache() -> None:
     _load_crop_artifact.cache_clear()
-    _load_disease_artifact.cache_clear()
+    _disease_bundle_cache.clear()
     _load_fertilizer_artifact.cache_clear()
     _load_irrigation_artifact.cache_clear()
+
+
+def warm_models(settings: AppSettings) -> dict[str, bool]:
+    """Best-effort load of every artifact into the process caches.
+
+    Used by ``GET /warmup`` keep-alive pings: the endpoint returns instantly
+    and this runs as a background task, so a spun-down free instance comes
+    back with its models already in memory. Never raises.
+    """
+    loaded: dict[str, bool] = {}
+    loaders = {
+        "crop": lambda: _load_crop_artifact(str(settings.model_path)),
+        "disease": lambda: _load_disease_bundle(settings),
+        "fertilizer": lambda: _load_fertilizer_artifact(str(settings.fertilizer_model_path)),
+        "irrigation": lambda: _load_irrigation_artifact(str(settings.irrigation_model_path)),
+    }
+    for name, loader in loaders.items():
+        try:
+            loader()
+            loaded[name] = True
+        except Exception as exc:  # noqa: BLE001 - warmup must never fail the ping
+            logger.warning("Warmup load of %s model failed: %s", name, exc)
+            loaded[name] = False
+    return loaded
 
 
 class ModelArtifactsMissing(RuntimeError):
@@ -533,33 +601,126 @@ def run_irrigation_schedule(payload: IrrigationRequest, settings: AppSettings) -
     return response
 
 
+# The farmer tells us the crop, and the curated dataset's labels are
+# crop-prefixed (``rice_blast``, ``wheat_yellow_rust``). Down-weighting other
+# crops' diseases (rather than excluding them) keeps "rice + powdery coating"
+# able to reach the generic powdery-mildew entry while stopping "rice + brown
+# spots" from being answered with a potato disease and potato advice. 0.3 was
+# tuned on the curated dataset: a cross-crop label needs a ~3.3x stronger raw
+# score than the best same-crop label to survive the prior.
+CROSS_CROP_PRIOR = 0.3
+
+# For crops absent from the curated dataset, require this much probability
+# mass before trusting a cross-crop diagnosis; below it, answer with the
+# honest "General Crop Stress" guidance instead of another crop's disease.
+UNKNOWN_CROP_MIN_CONFIDENCE = 0.12
+
+_CROP_KEY_SYNONYMS = {
+    "paddy": "rice",
+    "chili": "chilli",
+    "chillies": "chilli",
+    "chilies": "chilli",
+    "chickpea": "gram",
+    "bengal_gram": "gram",
+    "corn": "maize",
+}
+
+
+def _crop_label_key(crop: str) -> str:
+    normalized = crop.strip().lower().replace(" ", "_")
+    return _CROP_KEY_SYNONYMS.get(normalized, normalized)
+
+
 def run_disease_diagnosis(payload: DiseaseRequest, settings: AppSettings) -> DiseaseResponse:
     ensure_model_artifacts(settings)
-    artifact = _load_disease_artifact(str(settings.disease_model_path))
+    artifact = _load_disease_bundle(settings)
     pipeline = artifact["pipeline"]
 
-    probabilities = pipeline.predict_proba([payload.symptoms])[0]
+    # Include the crop in the classified text: the curated dataset's rows are
+    # crop-specific ("rice ... hopper"), so "wheat rust pustules" and "rice
+    # blast lesions" separate cleanly instead of collapsing onto one label.
+    query_text = f"{payload.crop} {payload.symptoms}".strip()
+    probabilities = np.asarray(pipeline.predict_proba([query_text])[0], dtype=float)
     classes = pipeline.classes_
+
+    # Soft crop prior: the stated crop is strong evidence, so labels for other
+    # crops keep only CROSS_CROP_PRIOR of their likelihood before renormalising.
+    crop_key = _crop_label_key(payload.crop)
+    crop_prefix = f"{crop_key}_"
+    crop_known = bool(crop_key) and any(
+        str(label).startswith(crop_prefix) for label in classes
+    )
+    if crop_known:
+        weights = np.array(
+            [1.0 if str(label).startswith(crop_prefix) else CROSS_CROP_PRIOR for label in classes]
+        )
+        posterior = probabilities * weights
+        total = float(posterior.sum())
+        if total > 0:
+            probabilities = posterior / total
+
     best_idx = int(np.argmax(probabilities))
     best_label = str(classes[best_idx])
     confidence = float(probabilities[best_idx])
 
-    content = DISEASE_LIBRARY.get(
-        best_label,
-        {
-            "title": "General Crop Stress",
-            "advice": "Monitor crop for 3-4 days and consult local expert with photos.",
-            "actions": ["Keep field records", "Avoid over-irrigation", "Use local extension support"],
-            "severity": "low",
-        },
-    )
+    fallback_content = {
+        "title": "General Crop Stress",
+        "advice": "Monitor crop for 3-4 days and consult local expert with photos.",
+        "actions": ["Keep field records", "Avoid over-irrigation", "Use local extension support"],
+        "severity": "low",
+    }
 
+    # A crop the dataset does not cover only gets another crop's diagnosis
+    # when the symptom match is strong (e.g. "powdery coating" is unmistakable
+    # regardless of host). A weak cross-crop guess would pair the farmer's
+    # crop with another crop's pesticide advice - worse than saying
+    # "we are not sure" honestly.
+    if not crop_known and confidence < UNKNOWN_CROP_MIN_CONFIDENCE:
+        best_label = ""
+
+    library = artifact.get("library") or {}
+    entry = library.get(best_label)
+    # The committed hand-written library still backs any label whose CSV row
+    # lacks treatment/prevention text, so a thin dataset row degrades to real
+    # curated advice rather than to the generic monitoring sentence.
+    legacy = DISEASE_LIBRARY.get(best_label)
+    if entry:
+        # Curated dataset entry: treatment AND prevention from the CSV.
+        title = str(entry.get("title") or best_label.replace("_", " ").title())
+        treatment = str(
+            entry.get("treatment")
+            or (legacy or {}).get("advice")
+            or fallback_content["advice"]
+        )
+        prevention = [str(item) for item in entry.get("prevention") or []]
+        if not prevention:
+            prevention = [
+                str(item)
+                for item in (legacy or {}).get("actions", fallback_content["actions"])
+            ]
+        severity = str(entry.get("severity") or (legacy or {}).get("severity") or "moderate")
+        if severity not in {"low", "moderate", "high"}:
+            severity = "moderate"
+        source = str(entry.get("source") or "") or None
+    else:
+        chosen = legacy or fallback_content
+        title = str(chosen["title"])
+        treatment = str(chosen["advice"])
+        prevention = [str(item) for item in chosen["actions"]]
+        severity = str(chosen["severity"])
+        source = None
+
+    localized_treatment = _localize_text(settings, treatment, payload.language)
+    localized_prevention = _localize_texts(settings, prevention, payload.language)
     response = DiseaseResponse(
-        disease=_localize_text(settings, content["title"], payload.language),
+        disease=_localize_text(settings, title, payload.language),
         confidence=confidence,
-        severity=content["severity"],
-        advice=_localize_text(settings, content["advice"], payload.language),
-        preventive_actions=_localize_texts(settings, list(content["actions"]), payload.language),
+        severity=severity,  # type: ignore[arg-type]
+        advice=localized_treatment,
+        preventive_actions=localized_prevention,
+        treatment=localized_treatment,
+        prevention=localized_prevention,
+        source=source,
     )
     _store_advisory(
         settings,

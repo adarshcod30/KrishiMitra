@@ -36,6 +36,9 @@ export function SchemesPage() {
     state: activeFarmer?.state || "Uttar Pradesh",
   });
   const [schemes, setSchemes] = useState<SchemeItem[]>([]);
+  // Optional human-readable provenance sentence from the API (e.g. "Matched
+  // from the verified official scheme catalog"). Null on older API versions.
+  const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -51,9 +54,11 @@ export function SchemesPage() {
         mobile: activeFarmer?.mobile,
       });
       setSchemes(response.schemes);
+      setNote(response.note ?? null);
       setHasSearched(true);
     } catch (caught) {
       setSchemes([]);
+      setNote(null);
       setHasSearched(true);
       setError(toUserMessage(caught, t("feedback.error")));
     } finally {
@@ -171,6 +176,19 @@ export function SchemesPage() {
             <LoadingState icon="scheme" />
           ) : schemes.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {/* Where these recommendations came from, when the API says. */}
+              {note && (
+                <p
+                  style={{
+                    fontSize: "0.95rem",
+                    color: "var(--ink-secondary)",
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
+                  {note}
+                </p>
+              )}
               {schemes.map((scheme) => (
                 <div key={scheme.id} className="result-card">
                   <h4
@@ -198,6 +216,24 @@ export function SchemesPage() {
                   <p style={{ fontSize: "1rem", fontWeight: 700, color: "var(--ink)", marginBottom: "0.5rem" }}>
                     How to apply
                   </p>
+                  {/* Optional step-by-step instructions from the API; older API versions omit the field. */}
+                  {scheme.how_to_apply && scheme.how_to_apply.length > 0 && (
+                    <ol
+                      style={{
+                        paddingLeft: "1.4rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.4rem",
+                        marginBottom: "0.75rem",
+                      }}
+                    >
+                      {scheme.how_to_apply.map((step, idx) => (
+                        <li key={idx} style={{ fontSize: "1rem", color: "var(--ink)", lineHeight: 1.55 }}>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                   {scheme.link ? (
                     <a
                       className="btn-secondary"
@@ -213,6 +249,18 @@ export function SchemesPage() {
                       Ask at your nearest agriculture office or Common Service Centre (CSC).
                     </p>
                   )}
+                  {/* Provenance note (e.g. "Source: pmkisan.gov.in") when the API provides one. */}
+                  {scheme.source && (
+                    <p
+                      style={{
+                        fontSize: "0.9rem",
+                        color: "var(--ink-secondary)",
+                        marginTop: "0.6rem",
+                      }}
+                    >
+                      {scheme.source}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -221,7 +269,12 @@ export function SchemesPage() {
               icon="scheme"
               message={
                 hasSearched
-                  ? "No schemes matched your details. Try a different farmer type or income."
+                  ? // Do not blame the farmer's inputs: an empty list here usually
+                    // means the scheme service returned nothing, not that they are
+                    // ineligible. Point them at the reliable offline channel.
+                    "No schemes could be loaded right now. Please try again in a minute, " +
+                    "or ask at your nearest agriculture office or Common Service Centre (CSC) — " +
+                    "they can check all schemes for you free of charge."
                   : t("schemes.empty")
               }
             />

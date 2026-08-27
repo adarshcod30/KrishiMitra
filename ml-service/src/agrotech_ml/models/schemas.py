@@ -111,6 +111,12 @@ class DiseaseResponse(BaseModel):
     severity: Literal["low", "moderate", "high"]
     advice: str
     preventive_actions: list[str]
+    # Additive fields: explicit treatment and prevention guidance sourced from
+    # the curated disease dataset (data/disease_symptoms.csv). ``advice`` keeps
+    # carrying the treatment text so existing clients see no change.
+    treatment: str | None = None
+    prevention: list[str] = []
+    source: str | None = None
 
 
 class FertilizerRequest(BaseModel):
@@ -171,10 +177,19 @@ class SchemeItem(BaseModel):
     eligibility: str
     link: str
     source: str | None = None
+    # Additive: step-by-step application instructions from the committed
+    # offline catalogue (data/schemes_catalog.json). Empty for live results.
+    how_to_apply: list[str] = []
 
 
 class SchemeResponse(BaseModel):
     schemes: list[SchemeItem]
+    # Additive fields: where the recommendations came from, so the UI can say
+    # "from the official catalog" instead of silently rendering an empty list.
+    # ``source`` is a machine label ("myscheme_live", "official_catalog",
+    # "myscheme_live+official_catalog"); ``note`` is a human sentence.
+    source: str | None = None
+    note: str | None = None
 
 
 class MarketPriceItem(BaseModel):
@@ -215,6 +230,9 @@ class KnowledgeArticle(BaseModel):
     summary: str
     url: str | None = None
     source: str | None = None
+    # Additive: step-by-step guidance from the committed local library
+    # (data/knowledge_library.json). Empty for live web results.
+    body_points: list[str] = []
 
 
 class UserProfileCreate(BaseModel):
@@ -328,6 +346,9 @@ class NewsItem(BaseModel):
     url: str
     source: str
     published_at: datetime | None = None
+    # Additive: True when this row is served from the committed evergreen
+    # fallback (official portals) because the live news feed was unavailable.
+    is_fallback: bool = False
 
 
 class LocationSearchItem(BaseModel):

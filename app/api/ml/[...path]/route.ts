@@ -36,16 +36,24 @@ export const maxDuration = 60;
 /**
  * How long to wait for the upstream to send RESPONSE HEADERS.
  *
- * A Hugging Face Space that has scaled to zero takes roughly 30 seconds — and
- * occasionally longer — to wake, and it holds the connection open while it
- * does. That is a legitimate slow response, not a failure, so the budget has to
- * cover it. 50s leaves ~10s of headroom under `maxDuration` for us to serialise
- * a real error.
+ * A free-tier backend that has scaled to zero (Render free instance, Hugging
+ * Face Space) takes 30-60+ seconds to wake, and it holds the connection open
+ * while it does. That is a legitimate slow response, not a failure, so the
+ * budget has to cover as much of it as the platform allows.
+ *
+ * GET gets the largest window that still fits under `maxDuration` (60s is the
+ * Hobby-plan wall clock, so ~75s is NOT possible here — 55s leaves just enough
+ * headroom to serialise a real JSON error instead of Vercel's opaque
+ * FUNCTION_INVOCATION_TIMEOUT page). Requests with a body keep a little more
+ * headroom. The client (`lib/api.ts`) additionally retries once after 8s on a
+ * 502/503/504, so a waking server effectively gets two full windows (~2 min of
+ * total wake coverage) before the user sees an error card.
  *
  * The timer is cleared the moment headers arrive: body streaming is then only
  * bounded by `maxDuration`, so a slow large download is not cut off mid-flight.
  */
-const UPSTREAM_TIMEOUT_MS = 50_000;
+const GET_UPSTREAM_TIMEOUT_MS = 55_000;
+const BODY_UPSTREAM_TIMEOUT_MS = 50_000;
 
 /** Seconds advertised in `Retry-After` when the backend looks like it is waking. */
 const RETRY_AFTER_SECONDS = 15;
@@ -190,6 +198,7 @@ async function proxy(
   const target = `${base}/${suffix}${search}`;
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
+  const upstreamTimeoutMs = hasBody ? BODY_UPSTREAM_TIMEOUT_MS : GET_UPSTREAM_TIMEOUT_MS;
 
   // One controller drives two independent cancellations: our own header timeout
   // and the browser hanging up. Without the second, a user navigating away
@@ -197,7 +206,7 @@ async function proxy(
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort(new DOMException("Upstream header timeout", "TimeoutError"));
-  }, UPSTREAM_TIMEOUT_MS);
+  }, upstreamTimeoutMs);
   const abortOnClientDisconnect = () => controller.abort(request.signal.reason);
   request.signal.addEventListener("abort", abortOnClientDisconnect, { once: true });
 
@@ -232,9 +241,9 @@ async function proxy(
     if (isTimeout(caught)) {
       return proxyError(
         504,
-        `The ML API at ${base} did not respond within ${Math.round(UPSTREAM_TIMEOUT_MS / 1000)}s. ` +
-          "If it is hosted on a Hugging Face Space that scaled to zero it is probably still " +
-          "waking up — retry in a few seconds.",
+        `The ML API at ${base} did not respond within ${Math.round(upstreamTimeoutMs / 1000)}s. ` +
+          "The free-tier server sleeps when idle and takes about a minute to wake up — " +
+          "it is probably starting right now. Retry in a few seconds.",
         RETRY_AFTER_SECONDS
       );
     }

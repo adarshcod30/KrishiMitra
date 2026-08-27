@@ -58,7 +58,40 @@ function resolveRequestUrl(path: string): string {
   return `${ML_API_URL}${path}`;
 }
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Hard client-side ceiling on any single request. The same-origin proxy already
+ * caps itself at 60s (`maxDuration`), so anything still pending after this is
+ * stuck — abort it so a "Loading..." button can never spin forever.
+ */
+const CLIENT_TIMEOUT_MS = 65_000;
+
+/** Delay before the single automatic retry when the backend looks asleep. */
+const COLD_START_RETRY_DELAY_MS = 8_000;
+
+/**
+ * Message shown when both attempts died on a 502/503/504. The backend runs on
+ * a free Render instance that sleeps when idle and needs about a minute to
+ * wake, so the honest advice is "wait a moment and press Try again" — not a
+ * generic "service error".
+ */
+const WAKING_MESSAGE =
+  "The KrishiMitra server was asleep and is waking up now (free hosting does this). " +
+  "It takes about a minute. Please wait a little and press Try again.";
+
+/** 502/503/504 are what the proxy returns while the free backend is waking. */
+function isColdStartError(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    (error.status === 502 || error.status === 503 || error.status === 504)
+  );
+}
+
+/** Cold starts plus outright network failures are worth one automatic retry. */
+function isRetryableError(error: unknown): boolean {
+  return isColdStartError(error) || (error instanceof ApiError && error.isNetworkError);
+}
+
+async function requestJsonOnce<T>(path: string, init?: RequestInit): Promise<T> {
   const url = resolveRequestUrl(path);
 
   let response: Response;
@@ -69,7 +102,8 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
         ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...(init?.headers ?? {})
       },
-      cache: "no-store"
+      cache: "no-store",
+      signal: init?.signal ?? AbortSignal.timeout(CLIENT_TIMEOUT_MS)
     });
   } catch (caught) {
     if (caught instanceof ApiError) {
@@ -88,6 +122,50 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+interface RequestOptions {
+  /**
+   * When true (the default), a request that fails with a 502/503/504 or a
+   * network error is retried ONCE after `COLD_START_RETRY_DELAY_MS`. Combined
+   * with the proxy's ~55s upstream window this covers the full ~1 minute a
+   * free-tier Render instance needs to wake from sleep, so the first visitor
+   * of the day usually gets data instead of an error card.
+   *
+   * Set to false for non-idempotent writes (profile creation, file uploads,
+   * retraining) where a blind replay could duplicate work.
+   */
+  retryColdStart?: boolean;
+}
+
+async function requestJson<T>(
+  path: string,
+  init?: RequestInit,
+  options?: RequestOptions
+): Promise<T> {
+  const retryColdStart = options?.retryColdStart ?? true;
+
+  try {
+    return await requestJsonOnce<T>(path, init);
+  } catch (first) {
+    if (!retryColdStart || !isRetryableError(first)) {
+      throw first;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
+
+    try {
+      return await requestJsonOnce<T>(path, init);
+    } catch (second) {
+      // Two 5xx gateway failures in a row: almost certainly the free server
+      // waking up. Throw a plain Error so `toUserMessage` renders this text
+      // verbatim instead of the generic 5xx sentence.
+      if (isColdStartError(second)) {
+        throw new Error(WAKING_MESSAGE);
+      }
+      throw second;
+    }
+  }
 }
 
 export function fetchLanguages(): Promise<{ languages: Record<LanguageCode, string> }> {
@@ -110,7 +188,8 @@ export function predictCrop(payload: SoilPayload): Promise<PredictionResponse> {
 }
 
 export function retrainModels(): Promise<ModelMetadata> {
-  return requestJson("/retrain", { method: "POST" });
+  // A blind replay would kick off a second training run.
+  return requestJson("/retrain", { method: "POST" }, { retryColdStart: false });
 }
 
 export function getIrrigationSchedule(
@@ -238,10 +317,14 @@ export function fetchNewsFeed(
 }
 
 export function upsertUser(payload: UserProfileCreate): Promise<UserProfile> {
-  return requestJson("/profiles/user", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  return requestJson(
+    "/profiles/user",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    { retryColdStart: false }
+  );
 }
 
 export function fetchUser(mobile: string): Promise<UserProfile> {
@@ -269,10 +352,14 @@ export function fetchFarmerWorkspace(farmerId: string): Promise<FarmerWorkspace>
 }
 
 export function addFarm(payload: FarmProfileCreate): Promise<FarmProfile> {
-  return requestJson("/profiles/farms", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  return requestJson(
+    "/profiles/farms",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    { retryColdStart: false }
+  );
 }
 
 export function fetchFarms(mobile: string): Promise<FarmProfile[]> {
@@ -299,10 +386,14 @@ export function uploadAsset(payload: {
   }
   formData.append("file", payload.file);
 
-  return requestJson("/uploads/assets", {
-    method: "POST",
-    body: formData
-  });
+  return requestJson(
+    "/uploads/assets",
+    {
+      method: "POST",
+      body: formData
+    },
+    { retryColdStart: false }
+  );
 }
 
 export function fetchAssets(

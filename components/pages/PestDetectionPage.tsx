@@ -97,6 +97,19 @@ export function PestDetectionPage() {
         ? "Needs attention"
         : "Mild";
 
+  // The raw model confidence is often low (the text classifier is small), and
+  // showing "Accuracy: 14%" destroys trust while explaining nothing. Translate
+  // it into plain words, and be honest when the model is essentially guessing.
+  const isUncertain = (result?.confidence ?? 0) < 0.35;
+  const matchLabel =
+    result == null
+      ? ""
+      : result.confidence >= 0.6
+        ? "Strong match"
+        : result.confidence >= 0.35
+          ? "Possible match"
+          : "Best guess - not confirmed";
+
   return (
     <div className="page-container">
       <header className="page-header">
@@ -202,10 +215,22 @@ export function PestDetectionPage() {
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
                 <span className={`badge ${severityBadgeClass}`}>{severityLabel}</span>
-                <span className="badge">
-                  {t("models.accuracy")}: {Math.round(result.confidence * 100)}%
-                </span>
+                <span className="badge">{matchLabel}</span>
               </div>
+
+              {isUncertain && (
+                <p
+                  style={{
+                    fontSize: "0.95rem",
+                    color: "var(--ink-secondary)",
+                    lineHeight: 1.5,
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  This is a best guess from your description. Before buying any spray,
+                  confirm with your local Krishi Vigyan Kendra or agriculture officer.
+                </p>
+              )}
 
               <h4 className="section-title" style={{ marginBottom: "0.4rem" }}>
                 What to do now
@@ -233,6 +258,20 @@ export function PestDetectionPage() {
                   </li>
                 ))}
               </ol>
+
+              {/* Additive field: where the advice comes from (e.g. an ICAR or
+                  state agriculture department page). Older APIs omit it. */}
+              {result.source && (
+                <p
+                  style={{
+                    fontSize: "0.9rem",
+                    color: "var(--ink-secondary)",
+                    marginTop: "0.75rem",
+                  }}
+                >
+                  Source: {result.source}
+                </p>
+              )}
             </div>
           ) : (
             <EmptyState icon="pest" message={t("pest.empty")} />

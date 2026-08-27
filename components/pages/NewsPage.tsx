@@ -48,7 +48,23 @@ export function NewsPage() {
           isEmpty={(items) => items.length === 0}
         >
           {(news) => (
-            <div className="recommendation-grid">
+            <div>
+              {/* When the live feed is down the API can mark items as saved
+                  fallback content; say so instead of passing it off as fresh. */}
+              {news.some((item) => item?.is_fallback) && (
+                <p
+                  style={{
+                    fontSize: "0.95rem",
+                    color: "var(--ink-secondary)",
+                    lineHeight: 1.5,
+                    marginBottom: "1rem",
+                  }}
+                >
+                  Live news is unavailable right now, so these are saved articles.
+                  Check back later for today&apos;s news.
+                </p>
+              )}
+              <div className="recommendation-grid">
               {news.map((item, i) => (
                 <article key={`${item.url}-${i}`} className="recommendation-card">
                   <div className="recommendation-header">
@@ -89,6 +105,13 @@ export function NewsPage() {
 
                   <p className="tips-content">{item.summary}</p>
 
+                  {/* Optional provenance/freshness note from the API. */}
+                  {item.source_note && (
+                    <p style={{ fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
+                      {item.source_note}
+                    </p>
+                  )}
+
                   <a
                     href={item.url}
                     target="_blank"
@@ -100,6 +123,7 @@ export function NewsPage() {
                   </a>
                 </article>
               ))}
+              </div>
             </div>
           )}
         </AsyncSection>

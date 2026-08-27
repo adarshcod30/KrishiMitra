@@ -91,32 +91,155 @@ def ensure_crop_dataset(path: Path, *, refresh_remote: bool) -> bool:
 
 
 def write_market_sample(path: Path) -> None:
+    """Offline mandi-price fallback covering every crop the UI dropdown offers.
+
+    Served only when the live data.gov.in feed is unreachable. Prices are
+    representative values inside the modal-price ranges reported by public
+    mandi trackers for late August 2026 (see data/README.md for the ranges and
+    sources); mandi names are real APMCs known for those commodities.
+    """
     rows = [
         ["date", "crop", "mandi", "state", "modal_price_inr_quintal", "trend"],
-        ["2026-03-10", "Wheat", "Azadpur", "Delhi", 2475, "up"],
-        ["2026-03-10", "Rice", "Karnal", "Haryana", 3150, "stable"],
-        ["2026-03-10", "Maize", "Nizamabad", "Telangana", 2120, "up"],
-        ["2026-03-10", "Cotton", "Rajkot", "Gujarat", 6980, "down"],
-        ["2026-03-10", "Chickpea", "Indore", "Madhya Pradesh", 5350, "up"],
+        ["2026-08-26", "Wheat", "Khanna", "Punjab", 2600, "stable"],
+        ["2026-08-26", "Wheat", "Karnal", "Haryana", 2900, "stable"],
+        ["2026-08-26", "Wheat", "Indore", "Madhya Pradesh", 2500, "stable"],
+        ["2026-08-26", "Rice", "Karnal", "Haryana", 3800, "stable"],
+        ["2026-08-26", "Rice", "Amritsar", "Punjab", 3400, "stable"],
+        ["2026-08-26", "Rice", "Jorhat", "Assam", 4200, "stable"],
+        ["2026-08-26", "Potato", "Agra", "Uttar Pradesh", 800, "down"],
+        ["2026-08-26", "Potato", "Jalandhar", "Punjab", 900, "down"],
+        ["2026-08-26", "Potato", "Sheoraphuli", "West Bengal", 750, "down"],
+        ["2026-08-26", "Tomato", "Kolar", "Karnataka", 1900, "down"],
+        ["2026-08-26", "Tomato", "Madanapalle", "Andhra Pradesh", 2100, "down"],
+        ["2026-08-26", "Tomato", "Pimpalgaon", "Maharashtra", 2200, "down"],
+        ["2026-08-26", "Onion", "Lasalgaon", "Maharashtra", 4100, "up"],
+        ["2026-08-26", "Onion", "Bengaluru", "Karnataka", 4300, "up"],
+        ["2026-08-26", "Onion", "Indore", "Madhya Pradesh", 3900, "up"],
+        ["2026-08-26", "Chilli", "Guntur", "Andhra Pradesh", 2600, "stable"],
+        ["2026-08-26", "Chilli", "Raipur", "Chhattisgarh", 2400, "stable"],
+        ["2026-08-26", "Chilli", "Surat", "Gujarat", 2500, "stable"],
+        ["2026-08-26", "Cotton", "Rajkot", "Gujarat", 6900, "stable"],
+        ["2026-08-26", "Cotton", "Adilabad", "Telangana", 7100, "stable"],
+        ["2026-08-26", "Cotton", "Sirsa", "Haryana", 6800, "stable"],
+        ["2026-08-26", "Maize", "Nizamabad", "Telangana", 1900, "down"],
+        ["2026-08-26", "Maize", "Davangere", "Karnataka", 2000, "down"],
+        ["2026-08-26", "Maize", "Chhindwara", "Madhya Pradesh", 1800, "down"],
     ]
 
     with path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerows(rows)
+
+
+# Diverse subset of the curated dataset used when disease_symptoms.csv itself
+# is somehow absent. Never edit content here directly - keep it a verbatim
+# copy of rows from data/disease_symptoms.csv (same columns, same sources).
+DISEASE_SAMPLE_LABELS = (
+    "rice_blast",
+    "rice_brown_planthopper",
+    "wheat_yellow_rust",
+    "cotton_pink_bollworm",
+    "tomato_late_blight",
+    "chilli_thrips",
+    "maize_fall_armyworm",
+    "gram_pod_borer",
+)
+
+DISEASE_COLUMNS = [
+    "crop",
+    "symptoms_text",
+    "disease",
+    "label",
+    "severity",
+    "treatment",
+    "prevention",
+    "source",
+]
 
 
 def write_disease_samples(path: Path) -> None:
-    rows = [
-        ["symptoms", "label"],
-        ["yellow leaves and hopper insects in paddy", "rice_brown_hopper"],
-        ["powdery white growth on leaves", "powdery_mildew"],
-        ["rust pustules on wheat leaf", "wheat_rust"],
-        ["boll rot and dark lesions in cotton", "cotton_boll_rot"],
-        ["leaf spot and drop in vegetables", "leaf_spot"],
-    ]
+    """Write the tiny fallback sample as a subset of the curated dataset.
+
+    data/disease_symptoms.csv is the source of truth (50 diseases, treatment +
+    prevention + citation per disease); this sample only exists so a checkout
+    missing the curated file can still train something. When the curated file
+    is present, copy the richest row of a few diverse diseases from it so the
+    fallback stays consistent automatically.
+    """
+    curated = path.parent / "disease_symptoms.csv"
+    rows: list[list[str]] = [DISEASE_COLUMNS]
+
+    if curated.is_file():
+        seen: set[str] = set()
+        with curated.open(encoding="utf-8", newline="") as file:
+            for row in csv.DictReader(file):
+                label = (row.get("label") or "").strip()
+                if label in DISEASE_SAMPLE_LABELS and label not in seen and row.get("treatment"):
+                    seen.add(label)
+                    rows.append([row.get(column, "") for column in DISEASE_COLUMNS])
+        if len(rows) > 1:
+            with path.open("w", newline="", encoding="utf-8") as file:
+                csv.writer(file).writerows(rows)
+            return
+
+    # Curated dataset missing: minimal hand-copied subset (from the same
+    # verified extension sources as data/disease_symptoms.csv).
+    rows.extend(
+        [
+            [
+                "rice",
+                "leaf spots shaped like eyes or spindles with grey centre and brown edge, spots join together and leaves dry up",
+                "Rice blast",
+                "rice_blast",
+                "high",
+                "Spray tricyclazole 75 WP at 0.6 g per litre at the first sign of spots; repeat after 12-15 days if new spots keep appearing.",
+                "Use blast resistant varieties|Treat seed with tricyclazole or carbendazim 2 g per kg|Split nitrogen doses",
+                "TNAU Agritech Portal, Crop Protection: Rice (agritech.tnau.ac.in)",
+            ],
+            [
+                "wheat",
+                "yellow orange powder in long stripes along the veins of the leaf, powder sticks to the finger when rubbed",
+                "Yellow rust (stripe rust)",
+                "wheat_yellow_rust",
+                "high",
+                "Spray propiconazole 25 EC 1 ml per litre as soon as the first pustules are seen.",
+                "Grow rust resistant varieties|Sow on time|Scout weekly in cool humid weeks",
+                "ICAR yellow rust advisory (icar.org.in); ICAR-IIWBR (iiwbr.org.in)",
+            ],
+            [
+                "cotton",
+                "flowers do not open properly and look like a rosette, pink caterpillars inside green bolls",
+                "Pink bollworm",
+                "cotton_pink_bollworm",
+                "high",
+                "Set 8 pheromone traps per acre; spray profenofos 50 EC 2 ml per litre or emamectin benzoate 5 SG 0.4 g per litre when catches cross threshold.",
+                "End the crop by December-January, never ratoon|Destroy stalks and unopened bolls after last picking",
+                "ICAR-CICR pink bollworm advisories (cicr.org.in)",
+            ],
+            [
+                "tomato",
+                "large water soaked dark patches on leaves and stems during cool cloudy wet weather, white fungal ring under the leaf",
+                "Late blight",
+                "tomato_late_blight",
+                "high",
+                "Remove infected parts and spray cymoxanil 8% + mancozeb 64% WP 3 g per litre; repeat after 10 days.",
+                "Protective mancozeb sprays in cool cloudy weather|Avoid overhead evening irrigation",
+                "ICAR-CPRI late blight management (cpri.icar.gov.in); TNAU Agritech Portal",
+            ],
+            [
+                "maize",
+                "ragged holes and window like patches on whorl leaves, wet sawdust like droppings inside the funnel",
+                "Fall armyworm",
+                "maize_fall_armyworm",
+                "high",
+                "Drop dry sand or soil mixed with lime into the funnel for small larvae; spray emamectin benzoate 5 SG 0.4 g per litre into the whorl if damage crosses 1 in 10 plants.",
+                "Pheromone traps 4 per acre from week one|Sow on time together with neighbours|Bird perches",
+                "ICAR fall armyworm advisory; Indian field efficacy trials",
+            ],
+        ]
+    )
     with path.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerows(rows)
+        csv.writer(file).writerows(rows)
 
 
 def write_weather_samples(path: Path) -> bool:

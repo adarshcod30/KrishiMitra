@@ -1,0 +1,40 @@
+# Keeps the free-tier Render API instance warm.
+#
+# Render's free web services spin down after ~15 minutes without traffic, and a
+# cold start takes 50-110s — long enough that the Vercel proxy times out (504)
+# and the first farmer of the day sees an error instead of the app. Pinging the
+# service every 10 minutes keeps the instance resident so real requests answer
+# in well under a second.
+#
+# /warmup is the API's dedicated pre-loading endpoint; /health is a cheap
+# liveness check. Both curls tolerate failure: no `-f`, so an HTTP 404 (until
+# the API deploys /warmup) is not an error, and `|| true` swallows transport
+# errors — any response at all already resets Render's idle timer.
+name: Keep Render API warm
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub cron granularity is minutes and runs can lag a
+    # few minutes under load, which is still comfortably inside Render's ~15
+    # minute idle window.
+    - cron: "*/10 * * * *"
+  # Allow a manual run from the Actions tab, e.g. to pre-warm before a demo.
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping warmup and health endpoints
+        run: |
+          # -m 120 gives a sleeping instance time to boot so the ping itself
+          # performs the warm-up. Neither ping fails the job: a 404 from a
+          # not-yet-deployed /warmup or a transient error must not mark the
+          # keepalive red every 10 minutes.
+          curl -sS -o /dev/null -w "warmup: HTTP %{http_code} in %{time_total}s\n" \
+            -m 120 https://krishimitra-api-t0wu.onrender.com/warmup || true
+          curl -sS -o /dev/null -w "health: HTTP %{http_code} in %{time_total}s\n" \
+            -m 120 https://krishimitra-api-t0wu.onrender.com/health || true

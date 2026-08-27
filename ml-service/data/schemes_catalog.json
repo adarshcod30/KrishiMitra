@@ -1,0 +1,483 @@
+{
+  "version": 1,
+  "verified_date": "2026-08-27",
+  "notes": "Committed offline catalogue of major, currently-running Government of India farmer schemes. Every entry was verified against the cited official/press source on the verified_date. Amounts and rules change with budgets: re-verify before editing, and never invent numbers.",
+  "schemes": [
+    {
+      "id": "pm-kisan",
+      "priority": 1,
+      "name": {
+        "en": "PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)",
+        "hi": "प्रधानमंत्री किसान सम्मान निधि (पीएम-किसान)"
+      },
+      "what_you_get": {
+        "en": "Rs 6,000 per year paid directly into your bank account, in three instalments of Rs 2,000 each.",
+        "hi": "हर साल 6,000 रुपये सीधे आपके बैंक खाते में, 2,000 रुपये की तीन किस्तों में।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "All landholding farmer families with cultivable land in their name. Not eligible: income-tax payers, serving/retired government employees (pension Rs 10,000+ per month), professionals like doctors and lawyers, and institutional landholders. eKYC and a Farmer ID are required to keep receiving instalments.",
+          "hi": "अपने नाम खेती की जमीन वाले सभी किसान परिवार पात्र हैं। आयकर देने वाले, सरकारी कर्मचारी/पेंशनभोगी (10,000 रुपये+ मासिक पेंशन), डॉक्टर-वकील जैसे पेशेवर और संस्थागत भूमिधारक पात्र नहीं हैं। किस्त पाते रहने के लिए ईकेवाईसी और किसान आईडी जरूरी है।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Go to pmkisan.gov.in and click 'New Farmer Registration', or visit your nearest Common Service Centre (CSC).",
+            "Keep Aadhaar, bank passbook and land record (khatauni/khasra) ready.",
+            "Complete eKYC on the portal or at the CSC.",
+            "Check instalment status anytime under 'Know Your Status' on the portal."
+          ],
+          "hi": [
+            "pmkisan.gov.in पर 'New Farmer Registration' चुनें, या नजदीकी जन सेवा केंद्र (सीएससी) जाएं।",
+            "आधार, बैंक पासबुक और जमीन के कागज (खतौनी/खसरा) तैयार रखें।",
+            "पोर्टल या सीएससी पर ईकेवाईसी पूरा करें।",
+            "किस्त की स्थिति पोर्टल पर 'Know Your Status' में देखें।"
+          ]
+        },
+        "official_url": "https://pmkisan.gov.in/"
+      },
+      "source_url": "https://pmkisan.gov.in/",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "pmfby",
+      "priority": 2,
+      "name": {
+        "en": "PMFBY (Pradhan Mantri Fasal Bima Yojana) - Crop Insurance",
+        "hi": "प्रधानमंत्री फसल बीमा योजना (पीएमएफबीवाई)"
+      },
+      "what_you_get": {
+        "en": "Insurance payout if your notified crop is damaged by drought, flood, pests or disease. You pay only 2% of the sum insured for kharif crops, 1.5% for rabi crops and 5% for commercial/horticultural crops; the government pays the rest of the premium.",
+        "hi": "सूखा, बाढ़, कीट या रोग से अधिसूचित फसल खराब होने पर बीमा राशि मिलती है। किसान को खरीफ में बीमित राशि का सिर्फ 2%, रबी में 1.5% और वाणिज्यिक/बागवानी फसलों में 5% प्रीमियम देना होता है; बाकी प्रीमियम सरकार देती है।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "All farmers growing notified crops in notified areas, including tenant farmers and sharecroppers (with proof of cultivation). Enrol before the seasonal cut-off date for your crop.",
+          "hi": "अधिसूचित क्षेत्र में अधिसूचित फसल उगाने वाले सभी किसान पात्र हैं, बटाईदार और किरायेदार किसान भी (खेती का प्रमाण जरूरी)। फसल की अंतिम तिथि से पहले नामांकन कराएं।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "If you have a crop loan/KCC, your bank can enrol you; otherwise apply yourself.",
+            "Apply online at pmfby.gov.in ('Farmer Corner'), on the Crop Insurance app, at a CSC, or at a bank branch.",
+            "Keep Aadhaar, bank details, land record and sowing details ready.",
+            "Report crop loss within 72 hours on the app, the toll-free helpline 14447, or through the insurance company."
+          ],
+          "hi": [
+            "फसल ऋण/केसीसी है तो बैंक नामांकन कर सकता है; नहीं तो खुद आवेदन करें।",
+            "pmfby.gov.in ('Farmer Corner'), Crop Insurance ऐप, सीएससी या बैंक शाखा से आवेदन करें।",
+            "आधार, बैंक विवरण, जमीन के कागज और बुवाई का विवरण तैयार रखें।",
+            "फसल नुकसान की सूचना 72 घंटे के भीतर ऐप या टोल-फ्री 14447 पर दें।"
+          ]
+        },
+        "official_url": "https://pmfby.gov.in/"
+      },
+      "source_url": "https://pmfby.gov.in/",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "kcc",
+      "priority": 3,
+      "name": {
+        "en": "Kisan Credit Card (KCC) - Cheap Crop Loan",
+        "hi": "किसान क्रेडिट कार्ड (केसीसी) - सस्ता फसल ऋण"
+      },
+      "what_you_get": {
+        "en": "Short-term crop loan at about 7% interest, and effectively about 4% if you repay on time (3% prompt-repayment incentive). Interest support now covers loans up to Rs 5 lakh (raised from Rs 3 lakh in Budget 2025-26). Loans up to Rs 2 lakh need no collateral.",
+        "hi": "करीब 7% ब्याज पर फसल ऋण, समय पर चुकाने पर करीब 4% (3% त्वरित भुगतान प्रोत्साहन)। ब्याज सहायता अब 5 लाख रुपये तक के ऋण पर मिलती है (बजट 2025-26 में 3 लाख से बढ़ाई गई)। 2 लाख रुपये तक के ऋण के लिए गिरवी की जरूरत नहीं।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "All farmers - owners, tenant farmers, sharecroppers and oral lessees; also SHG/JLG groups of farmers. Dairy and fisheries farmers can also get KCC for working capital.",
+          "hi": "सभी किसान पात्र हैं - भूमि मालिक, किरायेदार, बटाईदार; किसानों के एसएचजी/जेएलजी समूह भी। डेयरी और मछली पालन करने वाले किसान भी कार्यशील पूंजी के लिए केसीसी ले सकते हैं।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Go to any bank branch (or its website) with Aadhaar, land record and a passport photo.",
+            "Fill the one-page KCC form; banks must decide within 14 days.",
+            "Use the card/account for seeds, fertilizer, diesel and other crop costs.",
+            "Repay after harvest to keep the 3% prompt-repayment benefit."
+          ],
+          "hi": [
+            "आधार, जमीन के कागज और फोटो लेकर किसी भी बैंक शाखा जाएं।",
+            "एक पेज का केसीसी फॉर्म भरें; बैंक को 14 दिन में निर्णय देना होता है।",
+            "बीज, खाद, डीजल जैसी फसल लागत के लिए राशि उपयोग करें।",
+            "कटाई के बाद समय पर चुकाएं ताकि 3% की छूट मिलती रहे।"
+          ]
+        },
+        "official_url": "https://www.myscheme.gov.in/schemes/kcc"
+      },
+      "source_url": "https://www.business-standard.com/budget/news/budget-2025-kisan-credit-card-limit-increased-from-rs-3-to-5-lakh-125020100664_1.html",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "kcc-animal-husbandry",
+      "priority": 8,
+      "name": {
+        "en": "KCC for Animal Husbandry, Dairy and Fisheries",
+        "hi": "पशुपालन, डेयरी और मत्स्य पालन के लिए केसीसी"
+      },
+      "what_you_get": {
+        "en": "Working-capital loan on your Kisan Credit Card for cattle feed, veterinary care, fish seed and similar recurring costs. Interest subvention (7% rate, about 4% on prompt repayment) applies up to Rs 2 lakh per year for purely animal husbandry/fisheries activities.",
+        "hi": "पशु आहार, पशु चिकित्सा, मछली बीज जैसे खर्चों के लिए केसीसी पर कार्यशील पूंजी ऋण। केवल पशुपालन/मत्स्य गतिविधियों के लिए सालाना 2 लाख रुपये तक ब्याज सहायता (7% दर, समय पर चुकाने पर करीब 4%)।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "Dairy farmers (including landless), poultry farmers, inland and marine fish farmers, shrimp cultivators and beekeepers - individually or in SHG/JLG groups.",
+          "hi": "डेयरी किसान (भूमिहीन भी), मुर्गी पालक, मछली पालक, झींगा पालक और मधुमक्खी पालक - अकेले या एसएचजी/जेएलजी समूह में।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Apply at any bank branch with Aadhaar and proof of your dairy/fishery activity.",
+            "If you already hold a crop KCC, ask the bank to add the animal husbandry working-capital limit.",
+            "Use the limit for feed, medicines, electricity and labour; repay within the year."
+          ],
+          "hi": [
+            "आधार और डेयरी/मत्स्य गतिविधि के प्रमाण के साथ बैंक शाखा में आवेदन करें।",
+            "पहले से फसल केसीसी है तो बैंक से पशुपालन कार्यशील पूंजी सीमा जुड़वाएं।",
+            "राशि चारा, दवा, बिजली, मजदूरी पर खर्च करें; साल के भीतर चुकाएं।"
+          ]
+        },
+        "official_url": "https://www.dahd.gov.in/schemes/programmes/kcc"
+      },
+      "source_url": "https://www.dahd.gov.in/sites/default/files/2023-08/AHDF-KCCGuidelines.pdf",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "pm-kisan-maandhan",
+      "priority": 6,
+      "name": {
+        "en": "PM Kisan Maandhan Yojana (PM-KMY) - Farmer Pension",
+        "hi": "प्रधानमंत्री किसान मानधन योजना - किसान पेंशन"
+      },
+      "what_you_get": {
+        "en": "Guaranteed pension of Rs 3,000 per month after age 60. You contribute Rs 55 to Rs 200 per month (depending on joining age) and the government matches your contribution. If the farmer dies, the spouse gets 50% as family pension.",
+        "hi": "60 साल की उम्र के बाद हर महीने 3,000 रुपये की पक्की पेंशन। आपकी उम्र के हिसाब से 55 से 200 रुपये मासिक अंशदान, उतना ही सरकार भी जमा करती है। किसान की मृत्यु पर पति/पत्नी को 50% पारिवारिक पेंशन।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small"],
+        "max_land_acres": 4.94,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "Small and marginal farmers with cultivable land up to 2 hectares (about 5 acres), aged 18 to 40 years at entry. Farmers covered by EPFO/ESIC/NPS or paying income tax are not eligible.",
+          "hi": "2 हेक्टेयर (करीब 5 एकड़) तक जमीन वाले छोटे और सीमांत किसान, प्रवेश के समय उम्र 18 से 40 वर्ष। ईपीएफओ/ईएसआईसी/एनपीएस से जुड़े या आयकर देने वाले किसान पात्र नहीं।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Visit your nearest Common Service Centre (CSC) with Aadhaar and bank passbook.",
+            "The CSC operator enrols you free of cost on maandhan.in.",
+            "Monthly contribution is auto-debited from your bank account until age 60."
+          ],
+          "hi": [
+            "आधार और बैंक पासबुक लेकर नजदीकी जन सेवा केंद्र (सीएससी) जाएं।",
+            "सीएससी संचालक maandhan.in पर मुफ्त नामांकन करेगा।",
+            "60 वर्ष की उम्र तक मासिक अंशदान बैंक खाते से अपने आप कटेगा।"
+          ]
+        },
+        "official_url": "https://maandhan.in/"
+      },
+      "source_url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2053142",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "pm-kusum-solar-pump",
+      "priority": 7,
+      "name": {
+        "en": "PM-KUSUM (Component B) - Subsidised Solar Pump",
+        "hi": "पीएम-कुसुम (घटक बी) - सब्सिडी पर सोलर पंप"
+      },
+      "what_you_get": {
+        "en": "A standalone solar irrigation pump with 30% central subsidy plus 30% state subsidy (60% total; higher in North-East and hill states). Up to 30% more can be taken as a bank loan, so you may pay only around 10% upfront. Cuts diesel cost to zero.",
+        "hi": "अलग (ऑफ-ग्रिड) सोलर सिंचाई पंप - 30% केंद्र और 30% राज्य सब्सिडी (कुल 60%; पूर्वोत्तर व पहाड़ी राज्यों में अधिक)। 30% तक बैंक ऋण मिल सकता है, यानी शुरुआत में करीब 10% ही देना पड़ सकता है। डीजल का खर्च खत्म।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "Farmers with agricultural land and a water source (well, borewell, pond) in areas without a reliable grid connection for the pump. Apply through your STATE nodal energy agency; beware of fake 'KUSUM' websites asking for online fees.",
+          "hi": "जिन किसानों के पास खेती की जमीन और पानी का स्रोत (कुआं, बोरवेल, तालाब) है। आवेदन अपने राज्य की नोडल ऊर्जा एजेंसी से करें; ऑनलाइन फीस मांगने वाली नकली 'कुसुम' वेबसाइटों से सावधान रहें।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Find your state's nodal agency on the official portal pmkusum.mnre.gov.in.",
+            "Apply in the state portal window with land record, Aadhaar and bank details.",
+            "Pay your share only through the official state channel after allotment.",
+            "Installation comes with a 5-year warranty on the pump system."
+          ],
+          "hi": [
+            "आधिकारिक पोर्टल pmkusum.mnre.gov.in पर अपने राज्य की नोडल एजेंसी देखें।",
+            "जमीन के कागज, आधार और बैंक विवरण के साथ राज्य पोर्टल पर आवेदन करें।",
+            "आवंटन के बाद अपना हिस्सा केवल आधिकारिक माध्यम से जमा करें।",
+            "पंप सिस्टम पर 5 साल की वारंटी मिलती है।"
+          ]
+        },
+        "official_url": "https://pmkusum.mnre.gov.in/"
+      },
+      "source_url": "https://pmkusum.mnre.gov.in/",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "soil-health-card",
+      "priority": 5,
+      "name": {
+        "en": "Soil Health Card - Free Soil Testing",
+        "hi": "मृदा स्वास्थ्य कार्ड - मुफ्त मिट्टी जांच"
+      },
+      "what_you_get": {
+        "en": "Free laboratory test of your field's soil for 12 parameters (N, P, K, sulphur, micronutrients, pH, EC, organic carbon) with a printed card telling you exactly which fertilizer and how much to use. Saves 10-15% fertilizer cost on average.",
+        "hi": "आपके खेत की मिट्टी की 12 मापदंडों (एन, पी, के, सल्फर, सूक्ष्म पोषक तत्व, पीएच, ईसी, जैविक कार्बन) पर मुफ्त प्रयोगशाला जांच, और एक कार्ड जो बताता है कौन सी खाद कितनी डालें। औसतन 10-15% खाद खर्च की बचत।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "All farmers. Testing is free and recommended every 2-3 years for each field.",
+          "hi": "सभी किसान पात्र हैं। जांच मुफ्त है और हर खेत के लिए हर 2-3 साल में कराने की सलाह है।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Contact your village agriculture officer / Krishi Vigyan Kendra, or register on soilhealth.dac.gov.in.",
+            "Give a soil sample (or ask the field staff to collect it from your field).",
+            "Collect your Soil Health Card and follow its fertilizer dose for each crop."
+          ],
+          "hi": [
+            "गांव के कृषि अधिकारी / कृषि विज्ञान केंद्र से संपर्क करें, या soilhealth.dac.gov.in पर पंजीकरण करें।",
+            "मिट्टी का नमूना दें (या फील्ड स्टाफ से खेत से नमूना लिवाएं)।",
+            "मृदा स्वास्थ्य कार्ड लें और हर फसल के लिए बताई गई खाद मात्रा अपनाएं।"
+          ]
+        },
+        "official_url": "https://soilhealth.dac.gov.in/"
+      },
+      "source_url": "https://static.pib.gov.in/WriteReadData/specificdocs/documents/2025/aug/doc2025816613501.pdf",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "enam",
+      "priority": 9,
+      "name": {
+        "en": "e-NAM - Sell Your Produce Online at Better Prices",
+        "hi": "ई-नाम - ऑनलाइन मंडी में बेहतर दाम पर बिक्री"
+      },
+      "what_you_get": {
+        "en": "Free registration on the national online mandi (1,500+ APMC mandis connected). Buyers from across India bid on your produce, so prices are transparent and payment comes directly to your bank account.",
+        "hi": "राष्ट्रीय ऑनलाइन मंडी (1,500+ एपीएमसी मंडियां जुड़ी) पर मुफ्त पंजीकरण। देशभर के खरीदार आपकी उपज पर बोली लगाते हैं, दाम पारदर्शी और भुगतान सीधे बैंक खाते में।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "Any farmer can register free of cost. You sell through your nearest e-NAM integrated mandi.",
+          "hi": "कोई भी किसान मुफ्त पंजीकरण कर सकता है। बिक्री नजदीकी ई-नाम मंडी के जरिए होती है।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Register free on enam.gov.in or the e-NAM mobile app with Aadhaar, bank details and photo.",
+            "Select your nearest e-NAM integrated mandi and complete its KYC.",
+            "Bring produce for quality assaying at the mandi and accept the best online bid."
+          ],
+          "hi": [
+            "enam.gov.in या ई-नाम ऐप पर आधार, बैंक विवरण और फोटो के साथ मुफ्त पंजीकरण करें।",
+            "नजदीकी ई-नाम मंडी चुनें और उसका केवाईसी पूरा करें।",
+            "उपज की गुणवत्ता जांच कराएं और सबसे अच्छी ऑनलाइन बोली स्वीकार करें।"
+          ]
+        },
+        "official_url": "https://enam.gov.in/web/"
+      },
+      "source_url": "https://enam.gov.in/web/stakeholders-Involved/farmers",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "aif",
+      "priority": 11,
+      "name": {
+        "en": "Agriculture Infrastructure Fund (AIF) - Cheap Loan for Storage and Processing",
+        "hi": "कृषि अवसंरचना कोष (एआईएफ) - भंडारण व प्रसंस्करण के लिए सस्ता ऋण"
+      },
+      "what_you_get": {
+        "en": "Bank loan with 3% yearly interest subsidy (on loans up to Rs 2 crore, for up to 7 years) plus a government-paid credit guarantee, for building warehouses, cold storage, grading/sorting units, primary processing and other post-harvest infrastructure.",
+        "hi": "गोदाम, कोल्ड स्टोरेज, ग्रेडिंग/छंटाई इकाई, प्राथमिक प्रसंस्करण जैसी फसल-बाद की संरचना बनाने के लिए बैंक ऋण पर 3% सालाना ब्याज छूट (2 करोड़ रुपये तक, अधिकतम 7 वर्ष) और सरकारी क्रेडिट गारंटी।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "Individual farmers, FPOs, primary agricultural credit societies (PACS), SHGs, agri-entrepreneurs and startups. The project must be a post-harvest or community farming asset.",
+          "hi": "किसान, एफपीओ, प्राथमिक कृषि साख समितियां (पैक्स), एसएचजी, कृषि उद्यमी और स्टार्टअप पात्र हैं। परियोजना फसल-बाद की या सामुदायिक कृषि संपत्ति होनी चाहिए।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Register your project on agriinfra.dac.gov.in with a simple project report.",
+            "The portal forwards it to your chosen bank for loan sanction.",
+            "Interest subvention and credit guarantee are applied automatically to the sanctioned loan."
+          ],
+          "hi": [
+            "agriinfra.dac.gov.in पर सरल परियोजना रिपोर्ट के साथ पंजीकरण करें।",
+            "पोर्टल आवेदन आपके चुने बैंक को ऋण मंजूरी के लिए भेजता है।",
+            "मंजूर ऋण पर ब्याज छूट और क्रेडिट गारंटी अपने आप लागू होती है।"
+          ]
+        },
+        "official_url": "https://agriinfra.dac.gov.in/"
+      },
+      "source_url": "https://schemes.vikaspedia.in/viewcontent/schemesall/schemes-for-farmers/agriculture-infrastructure-fund?lgn=en",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "pmksy-pdmc",
+      "priority": 4,
+      "name": {
+        "en": "Per Drop More Crop (PMKSY) - Drip and Sprinkler Subsidy",
+        "hi": "प्रति बूंद अधिक फसल (पीएमकेएसवाई) - ड्रिप व स्प्रिंकलर सब्सिडी"
+      },
+      "what_you_get": {
+        "en": "Subsidy on drip and sprinkler irrigation systems: 55% of cost for small and marginal farmers, 45% for other farmers (some states add their own top-up). Micro-irrigation saves water and typically raises yield 20-30%.",
+        "hi": "ड्रिप और स्प्रिंकलर सिंचाई पर सब्सिडी: छोटे-सीमांत किसानों को लागत का 55%, अन्य किसानों को 45% (कई राज्य अतिरिक्त सब्सिडी भी देते हैं)। सूक्ष्म सिंचाई से पानी बचता है और उपज आमतौर पर 20-30% बढ़ती है।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "All farmers with a water source. Small/marginal farmers (up to 2 ha) get the higher 55% rate. Apply through your state agriculture/horticulture department.",
+          "hi": "पानी के स्रोत वाले सभी किसान पात्र। छोटे/सीमांत किसानों (2 हेक्टेयर तक) को 55% की ऊंची दर। आवेदन राज्य कृषि/उद्यानिकी विभाग से करें।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Apply on your state's micro-irrigation portal or at the block agriculture/horticulture office.",
+            "Attach land record, Aadhaar, bank details and a quotation from an empanelled supplier.",
+            "After approval, the supplier installs the system and the subsidy is adjusted in your bill or credited to you."
+          ],
+          "hi": [
+            "राज्य के सूक्ष्म सिंचाई पोर्टल या ब्लॉक कृषि/उद्यानिकी कार्यालय में आवेदन करें।",
+            "जमीन के कागज, आधार, बैंक विवरण और सूचीबद्ध आपूर्तिकर्ता का कोटेशन लगाएं।",
+            "मंजूरी के बाद सिस्टम लगेगा और सब्सिडी बिल में समायोजित या खाते में जमा होगी।"
+          ]
+        },
+        "official_url": "https://pmksy.gov.in/microirrigation/"
+      },
+      "source_url": "https://www.global-agriculture.com/india-region/micro-irrigation-centrally-sponsored-scheme-css-of-per-drop-more-crop-pdmc/",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "smam",
+      "priority": 10,
+      "name": {
+        "en": "SMAM - Subsidy on Tractors and Farm Machines",
+        "hi": "एसएमएएम - ट्रैक्टर व कृषि यंत्रों पर सब्सिडी"
+      },
+      "what_you_get": {
+        "en": "40-50% subsidy on purchase of farm machinery (rotavator, seed drill, sprayer, harvester and more): 50% for SC/ST, women, small and marginal farmers and North-East farmers; 40% for others. Also funds Custom Hiring Centres so you can rent machines cheaply.",
+        "hi": "कृषि यंत्रों (रोटावेटर, सीड ड्रिल, स्प्रेयर, हार्वेस्टर आदि) की खरीद पर 40-50% सब्सिडी: एससी/एसटी, महिला, छोटे-सीमांत और पूर्वोत्तर के किसानों को 50%; अन्य को 40%। किराए पर सस्ते यंत्रों के लिए कस्टम हायरिंग केंद्रों को भी सहायता।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": null,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "All farmers; higher 50% rate for SC/ST, women, small/marginal and North-East farmers. Subsidy is capped per machine type.",
+          "hi": "सभी किसान पात्र; एससी/एसटी, महिला, छोटे/सीमांत और पूर्वोत्तर किसानों को 50% की ऊंची दर। हर यंत्र पर सब्सिडी की अधिकतम सीमा तय है।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Register as a farmer on agrimachinery.nic.in (Direct Benefit Transfer in Agriculture Mechanization portal) or your state portal.",
+            "Apply for the machine you need and upload Aadhaar, bank and land details.",
+            "Buy from a registered dealer after approval; subsidy comes to your bank account."
+          ],
+          "hi": [
+            "agrimachinery.nic.in (डीबीटी कृषि यंत्रीकरण पोर्टल) या राज्य पोर्टल पर किसान पंजीकरण करें।",
+            "जरूरी यंत्र के लिए आवेदन करें और आधार, बैंक व जमीन विवरण अपलोड करें।",
+            "मंजूरी के बाद पंजीकृत डीलर से खरीदें; सब्सिडी बैंक खाते में आएगी।"
+          ]
+        },
+        "official_url": "https://agrimachinery.nic.in/"
+      },
+      "source_url": "https://agrimachinery.nic.in/Files/Guidelines/smam1819.pdf",
+      "verified_date": "2026-08-27"
+    },
+    {
+      "id": "pkvy",
+      "priority": 12,
+      "name": {
+        "en": "Paramparagat Krishi Vikas Yojana (PKVY) - Organic Farming Support",
+        "hi": "परम्परागत कृषि विकास योजना (पीकेवीवाई) - जैविक खेती सहायता"
+      },
+      "what_you_get": {
+        "en": "Rs 31,500 per hectare over 3 years for farmers in organic clusters, of which Rs 15,000 per hectare comes directly to your bank account (DBT) for organic inputs like compost and bio-fertilizers. Also covers organic certification and help with marketing.",
+        "hi": "जैविक क्लस्टर के किसानों को 3 साल में 31,500 रुपये प्रति हेक्टेयर, जिसमें से 15,000 रुपये प्रति हेक्टेयर जैविक खाद, जैव-उर्वरक जैसे इनपुट के लिए सीधे बैंक खाते (डीबीटी) में। जैविक प्रमाणीकरण और बिक्री में भी मदद।"
+      },
+      "eligibility": {
+        "farmer_types": ["marginal", "small", "medium", "large"],
+        "max_land_acres": 4.94,
+        "max_annual_income_lakh": null,
+        "states": "all",
+        "notes": {
+          "en": "Farmers joining a local organic cluster (about 20 ha per cluster); assistance is paid for a maximum of 2 hectares (about 5 acres) per farmer. You commit to organic practices for the 3-year cycle.",
+          "hi": "स्थानीय जैविक क्लस्टर (करीब 20 हेक्टेयर प्रति क्लस्टर) से जुड़ने वाले किसान; सहायता प्रति किसान अधिकतम 2 हेक्टेयर (करीब 5 एकड़) पर मिलती है। 3 साल तक जैविक पद्धति अपनानी होती है।"
+        }
+      },
+      "how_to_apply": {
+        "steps": {
+          "en": [
+            "Contact your block/district agriculture office or Krishi Vigyan Kendra and ask about the nearest PKVY cluster.",
+            "Enrol in the cluster with Aadhaar, land record and bank details.",
+            "Follow the organic package of practices; DBT instalments come to your account each year."
+          ],
+          "hi": [
+            "ब्लॉक/जिला कृषि कार्यालय या कृषि विज्ञान केंद्र से नजदीकी पीकेवीवाई क्लस्टर की जानकारी लें।",
+            "आधार, जमीन के कागज और बैंक विवरण के साथ क्लस्टर में नामांकन करें।",
+            "जैविक पद्धति अपनाएं; डीबीटी किस्तें हर साल खाते में आएंगी।"
+          ]
+        },
+        "official_url": "https://pgsindia-ncof.gov.in/"
+      },
+      "source_url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2099756",
+      "verified_date": "2026-08-27"
+    }
+  ]
+}
