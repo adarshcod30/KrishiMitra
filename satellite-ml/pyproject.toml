@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "AI-driven crop-type mapping, phenology-aware moisture-stress detection and FAO-56 irrigation advisory from optical + SAR satellite data"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
 authors = [{ name = "KrishiMitra" }]
 keywords = ["remote-sensing", "agriculture", "crop-classification", "sentinel", "sar", "irrigation", "fao-56"]
 
