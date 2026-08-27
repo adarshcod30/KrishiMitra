@@ -168,7 +168,7 @@ flowchart TB
     end
 
     subgraph offline["Offline · not on the serving path"]
-        ETL["ml-service/scripts/<br/>7 reproducible ETL jobs"]
+        ETL["ml-service/scripts/<br/>8 reproducible ETL jobs"]
         TRAIN["training.py · multi_models.py<br/>train_leaf_model.py"]
         SAT["satellite-ml/<br/>optical + SAR pipeline"]
     end
@@ -228,7 +228,7 @@ sequenceDiagram
     F->>W: opens /dashboard
     W->>P: GET /warmup (fire-and-forget)
     P->>A: wake instance
-    Note over A: cold start 60–110 s;<br/>client backs off 6/12/20/30/40 s
+    Note over A: cold start 60-110 s<br/>client backs off 6/12/20/30/40 s
 
     F->>W: submits N·P·K·temp·humidity·pH·rainfall
     W->>P: POST /predict/crop
@@ -659,7 +659,7 @@ inference is what farmers wait on, so the marginal accuracy is free at serving t
 
 ## The Data Pipeline
 
-Nine datasets, ~148,000 rows, all shipped in-package and gzipped. **Five come from government or
+Nine datasets, ~150,000 rows, all shipped in-package and gzipped. **Five come from government or
 open sources; four are authored.** Every derived dataset has a reproducible build script in
 [`ml-service/scripts/`](ml-service/scripts/) — no dataset in this repo is a mystery blob.
 
@@ -877,7 +877,7 @@ KrishiMitra/
 │   │   │   ├── multi_models.py       auxiliary surrogates
 │   │   │   └── datafiles.py          install-layout-proof data resolution
 │   │   └── data/                     9 datasets, shipped in-package
-│   ├── scripts/                      7 reproducible ETL + training jobs
+│   ├── scripts/                      8 reproducible ETL + training jobs
 │   └── artifacts/                    5 model files, baked into the image
 │
 ├── satellite-ml/                     Optical + microwave RS pipeline
@@ -1063,10 +1063,10 @@ Stated plainly, because a README that only lists strengths is not documentation.
 
 **Product**
 
-- **165 i18n keys remain untranslated** in the nine non-English/Hindi languages (the longer prose).
-  Non-English blocks are typed `Partial<Record<...>>` so `t()` falls back to English visibly and the
-  audit shows exactly what is missing. **These must not be padded with English strings** — that would
-  hide the gap rather than close it.
+- **126 key-slots remain untranslated** across the ten `Partial<Record<...>>` language blocks (the
+  longer prose; English has 235 keys). `t()` falls back to English visibly, so the audit shows
+  exactly what is missing. **These must not be padded with English strings** — that would hide the
+  gap rather than close it.
 - **Cold starts of 60–110 seconds** on the free tier until an external pinger is attached.
 - **`/investor/opportunities` returns `[]`** and is called by `lib/api.ts` but rendered by no page.
   Harmless orphan.
