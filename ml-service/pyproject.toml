@@ -18,7 +18,7 @@ dependencies = [
   "pydantic-settings==2.13.1",
   "joblib==1.5.3",
   "python-multipart==0.0.22",
-  "httpx==0.28.1"
+  "httpx==0.28.1",
   "pillow>=10.0",
 ]
 
