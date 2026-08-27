@@ -50,3 +50,8 @@ tsconfig.tsbuildinfo
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Kaggle credentials — token lives in ~/.kaggle/access_token, never in the repo
+.kaggle/
+kaggle.json
+access_token
