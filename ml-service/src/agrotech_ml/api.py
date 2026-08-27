@@ -95,10 +95,12 @@ from agrotech_ml.models.schemas import (
 )
 from agrotech_ml.core.settings import get_settings
 from agrotech_ml.db.storage import get_farmer_workspace, resolve_mobile, save_upload
-from agrotech_ml.services import retrain_job
+from agrotech_ml.services import leaf_diagnosis, retrain_job
 from agrotech_ml.services.training import load_metadata
 from agrotech_ml.services.upload_service import (
     OCTET_STREAM,
+    read_within_limit,
+    validate_content_type,
     UnsupportedUploadType,
     UploadStorageUnavailable,
     UploadTooLarge,
@@ -483,6 +485,46 @@ def fetch_farms(mobile: str, auth: AuthContext = Auth) -> list[FarmProfile]:
 # ---------------------------------------------------------------------------
 # Uploads
 # ---------------------------------------------------------------------------
+
+
+@app.post("/disease/diagnose/photo", response_model=DiseaseResponse)
+async def diagnose_disease_photo(
+    crop: str = Form(...),
+    language: LanguageCode = Form("en"),
+    symptoms: str | None = Form(None),
+    file: UploadFile = File(...),
+    auth: AuthContext = Auth,
+) -> DiseaseResponse:
+    """Diagnose from a leaf photograph, falling back to the text model.
+
+    The photo classifier only covers the crops it was trained on, so when it is
+    unavailable or unsure we defer to the symptom text rather than guessing:
+    a confident wrong answer costs a farmer a spray they did not need.
+    """
+    content_type = validate_content_type(settings, file.content_type)
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="Upload a photo of the affected leaf.")
+
+    image_bytes = await read_within_limit(settings, file)
+    prediction = leaf_diagnosis.predict(settings, image_bytes)
+
+    if prediction is None or not prediction["confident"]:
+        if not symptoms or len(symptoms.strip()) < 4:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "The photo was not clear enough to identify a disease. "
+                    "Retake it in daylight filling the frame with one leaf, "
+                    "or describe what you see."
+                ),
+            )
+        return diagnose(
+            DiseaseRequest(crop=crop, symptoms=symptoms, language=language), auth
+        )
+
+    # Look the predicted label up directly in the shared disease library so the
+    # advice (and its native Hindi/Marathi wording) matches the text path.
+    return leaf_diagnosis.response_for(settings, prediction, language)
 
 
 @app.post("/uploads/assets", response_model=UploadResponse)

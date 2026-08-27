@@ -208,6 +208,25 @@ export function diagnoseDisease(payload: DiseaseRequest): Promise<DiseaseRespons
   });
 }
 
+/**
+ * Diagnose from a leaf photograph. The API classifies the image and falls back
+ * to the symptom text when the photo is unclear, so `symptoms` is sent along
+ * whenever the farmer typed any.
+ */
+export function diagnoseDiseasePhoto(payload: {
+  crop: string;
+  file: File;
+  language: LanguageCode;
+  symptoms?: string;
+}): Promise<DiseaseResponse> {
+  const form = new FormData();
+  form.append("crop", payload.crop);
+  form.append("language", payload.language);
+  if (payload.symptoms?.trim()) form.append("symptoms", payload.symptoms.trim());
+  form.append("file", payload.file);
+  return requestJson("/disease/diagnose/photo", { method: "POST", body: form });
+}
+
 export function recommendFertilizer(
   payload: FertilizerRequest
 ): Promise<FertilizerResponse> {

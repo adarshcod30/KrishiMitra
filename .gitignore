@@ -55,3 +55,7 @@ tsconfig.tsbuildinfo
 .kaggle/
 kaggle.json
 access_token
+
+# Leaf model is regenerable from data/leaf_features.csv via
+# scripts/train_leaf_model.py --from-features; too large for git.
+ml-service/artifacts/leaf_model.joblib

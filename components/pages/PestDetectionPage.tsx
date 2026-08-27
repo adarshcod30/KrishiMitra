@@ -7,7 +7,7 @@ import { EmptyState, ErrorNotice, LoadingState } from "@/components/ui/AsyncStat
 import { Icon } from "@/components/ui/Icons";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { diagnoseDisease, uploadAsset } from "@/lib/api";
+import { diagnoseDisease, diagnoseDiseasePhoto, uploadAsset } from "@/lib/api";
 import { toUserMessage } from "@/lib/errors";
 import type { DiseaseResponse, UploadAsset } from "@/lib/types";
 
@@ -61,14 +61,19 @@ export function PestDetectionPage() {
     setBusy(true);
     setError(null);
     try {
-      const response = await diagnoseDisease({
-        crop,
-        symptoms,
-        image_hint: asset?.url,
-        farmer_id: activeFarmer?.farmer_id,
-        mobile: activeFarmer?.mobile,
-        language
-      });
+      // A photo carries far more signal than typed symptoms, so when the
+      // farmer selected one it drives the diagnosis; the API still falls back
+      // to the symptom text if the image is too unclear to classify.
+      const response = file
+        ? await diagnoseDiseasePhoto({ crop, file, language, symptoms })
+        : await diagnoseDisease({
+            crop,
+            symptoms,
+            image_hint: asset?.url,
+            farmer_id: activeFarmer?.farmer_id,
+            mobile: activeFarmer?.mobile,
+            language
+          });
       setResult(response);
     } catch (caught) {
       // Without this the rejection is unhandled and the spinner just stops.

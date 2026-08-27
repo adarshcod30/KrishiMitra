@@ -2,6 +2,8 @@ import csv
 import json
 import logging
 from pathlib import Path
+
+from agrotech_ml.datafiles import data_file
 from typing import Any
 
 import joblib
@@ -243,6 +245,7 @@ def main() -> None:
         "disease_dataset": disease_payload["dataset"],
         "disease_rows": disease_payload["dataset_rows"],
         "disease_labels": len(disease_payload["library"]),
+        "leaf_classes": _train_leaf_model_if_possible(settings),
         "top_models": [
             {
                 "model": score.model_name,
@@ -255,6 +258,55 @@ def main() -> None:
 
     print(json.dumps(summary, indent=2))
 
+
+
+def _train_leaf_model_if_possible(settings: AppSettings) -> int:
+    """Rebuild the leaf-photo classifier from the committed feature CSV.
+
+    Runs as part of the normal training pass so a deploy build produces the
+    model without needing the multi-gigabyte image corpora, which are
+    downloaded once, used to extract features, and deleted. Returns the number
+    of classes, or 0 when the feature file is absent.
+    """
+    features_csv = data_file("leaf_features.csv")
+    if not features_csv.is_file():
+        return 0
+    try:
+        import csv as _csv
+
+        import joblib
+        import numpy as np
+        from sklearn.ensemble import ExtraTreesClassifier
+        from sklearn.pipeline import Pipeline
+        from sklearn.preprocessing import StandardScaler
+
+        with features_csv.open(encoding="utf-8") as fh:
+            rows = list(_csv.reader(fh))
+        header, body = rows[0], rows[1:]
+        labels = np.array([f"{r[0]}|{r[1]}" for r in body])
+        matrix = np.array([[float(v) for v in r[2:]] for r in body], dtype=np.float32)
+
+        model = Pipeline([
+            ("scale", StandardScaler()),
+            ("clf", ExtraTreesClassifier(
+                n_estimators=120, min_samples_leaf=5, max_depth=24,
+                max_features="sqrt", class_weight="balanced",
+                n_jobs=-1, random_state=42)),
+        ])
+        model.fit(matrix, labels)
+        joblib.dump(
+            {
+                "pipeline": model,
+                "classes": sorted(set(labels.tolist())),
+                "feature_names": header[2:],
+                "n_images": len(labels),
+            },
+            Path(settings.artifacts_dir) / "leaf_model.joblib",
+        )
+        return len(set(labels.tolist()))
+    except Exception as exc:  # never fail the whole training run for this
+        logger.warning("leaf model not rebuilt: %s", exc)
+        return 0
 
 if __name__ == "__main__":
     main()

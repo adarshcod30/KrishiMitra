@@ -150,6 +150,15 @@ def s3_object_name(settings: AppSettings, stored_name: str) -> str:
     return build_object_name(settings.s3_uploads_prefix, stored_name)
 
 
+async def read_within_limit(settings: AppSettings, upload) -> bytes:
+    """Read an upload fully into memory, enforcing the configured size cap.
+
+    For callers that need the bytes (photo classification) rather than a stored
+    file. Raises :class:`UploadTooLarge` before returning anything oversized.
+    """
+    return await _read_limited(upload, int(settings.max_upload_size_bytes))
+
+
 async def store_upload(
     settings: AppSettings,
     upload,  # fastapi.UploadFile - typed loosely to keep this module import-light
@@ -229,6 +238,7 @@ async def _read_limited(upload, limit: int) -> bytes:
 
 
 __all__ = [
+    "read_within_limit",
     "CONTENT_TYPE_BY_EXTENSION",
     "OCTET_STREAM",
     "StoredUpload",
