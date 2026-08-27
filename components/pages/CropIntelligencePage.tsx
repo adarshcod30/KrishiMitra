@@ -18,6 +18,16 @@ const SOIL_KEYS: readonly string[] = ["N", "P", "K", "ph"];
 const SOIL_FIELDS = FEATURE_INPUTS.filter((field) => SOIL_KEYS.includes(field.key));
 const WEATHER_FIELDS = FEATURE_INPUTS.filter((field) => !SOIL_KEYS.includes(field.key));
 
+const SEASONS = ["Kharif", "Rabi", "Summer", "Whole Year"] as const;
+
+/** Default to the season India is actually in: Kharif Jun-Oct, Rabi Nov-Mar. */
+function currentSeason(): string {
+  const month = new Date().getMonth() + 1;
+  if (month >= 6 && month <= 10) return "Kharif";
+  if (month >= 11 || month <= 3) return "Rabi";
+  return "Summer";
+}
+
 export function CropIntelligencePage() {
   const { t, language } = useLanguage();
   const { activeFarmer } = useFarmerSession();
@@ -25,16 +35,24 @@ export function CropIntelligencePage() {
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which sowing season the farmer is planning for. Drives the district
+  // returns lookup; the soil model itself is season-agnostic.
+  const [season, setSeason] = useState<string>(currentSeason());
 
   async function handleRun() {
     setBusy(true);
     setError(null);
     try {
+      // The farmer's district unlocks the government district returns, so each
+      // recommendation can say whether the crop is actually proven locally.
       const response = await predictCrop({
         ...input,
         language,
         farmer_id: activeFarmer?.farmer_id,
-        mobile: activeFarmer?.mobile
+        mobile: activeFarmer?.mobile,
+        state: activeFarmer?.state,
+        district: activeFarmer?.district,
+        season
       });
       setResult(response);
     } catch (caught: unknown) {
@@ -108,6 +126,30 @@ export function CropIntelligencePage() {
             {WEATHER_FIELDS.map(renderField)}
           </div>
 
+          <span className="page-eyebrow" style={{ marginTop: "0.75rem" }}>
+            Sowing season
+          </span>
+          <div style={{ marginTop: "0.5rem" }}>
+            <label className="field-label" htmlFor="season-select">
+              Which season are you planting for?
+            </label>
+            <select
+              id="season-select"
+              className="field-select"
+              value={season}
+              onChange={(event) => setSeason(event.target.value)}
+            >
+              {SEASONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <p className="field-help">
+              Used to look up what your district actually grows in this season.
+            </p>
+          </div>
+
           {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.75rem" }}>
@@ -161,6 +203,23 @@ export function CropIntelligencePage() {
                   <p className="tips-content">{topPick.agronomy_tip}</p>
                 </div>
 
+                {topPick.local && (
+                  <div className="tips-section" style={{ marginTop: "1rem" }}>
+                    <div className="tips-title">In your district</div>
+                    <p className="tips-content">
+                      Rank {topPick.local.rank_in_district} of the crops grown here in{" "}
+                      {topPick.local.season}
+                      {topPick.local.area_ha
+                        ? `, on about ${Math.round(topPick.local.area_ha).toLocaleString()} hectares`
+                        : ""}
+                      {topPick.local.median_yield
+                        ? `, yielding around ${topPick.local.median_yield} ${topPick.local.yield_unit}`
+                        : ""}
+                      .
+                    </p>
+                  </div>
+                )}
+
                 <div style={{ marginTop: "1rem" }}>
                   <div className="tips-title">{t("common.actions")}</div>
                   <div className="actions-list">
@@ -186,6 +245,41 @@ export function CropIntelligencePage() {
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {result.local_crops?.matched && result.local_crops.crops.length > 0 && (
+                <div className="surface-card" style={{ marginTop: "1.25rem" }}>
+                  <h3 className="section-title">
+                    Grown well in {activeFarmer?.district}
+                  </h3>
+                  <p className="field-help" style={{ marginTop: "-0.25rem" }}>
+                    From five years of government district records
+                    {result.local_crops.season_used
+                      ? ` for ${result.local_crops.season_used}`
+                      : " across all seasons"}
+                    . The soil match above and this list are strongest where they agree.
+                  </p>
+                  <div style={{ marginTop: "0.75rem" }}>
+                    {result.local_crops.crops.map((item) => (
+                      <div key={`${item.crop}-${item.season}`} className="list-row">
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{item.crop}</div>
+                          <div className="field-help" style={{ margin: 0 }}>
+                            {item.why}
+                          </div>
+                        </div>
+                        {item.median_yield ? (
+                          <span className="badge badge-success">
+                            {item.median_yield} {item.yield_unit}
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="field-help" style={{ marginTop: "0.75rem" }}>
+                    Source: {result.local_crops.source}
+                  </p>
                 </div>
               )}
             </div>

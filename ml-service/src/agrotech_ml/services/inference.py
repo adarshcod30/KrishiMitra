@@ -14,6 +14,7 @@ from agrotech_ml.db.dataset import FEATURE_COLUMNS
 from agrotech_ml.core.i18n import localize_crop_name, tr
 from agrotech_ml.db.storage import save_advisory
 from agrotech_ml.models.schemas import (
+    LocalEvidence,
     DiseaseRequest,
     DiseaseResponse,
     FertilizerRequest,
@@ -505,11 +506,34 @@ def run_prediction(payload: SoilWeatherInput, settings: AppSettings, top_k: int 
 
     actions = _generate_field_actions(settings, payload, recommendations[0].crop)
 
+    # When the farmer's district is known, pair the soil model's answer with
+    # what five years of government returns say actually yields there. A crop
+    # that fits the soil AND is proven locally is a far stronger recommendation
+    # than either signal alone; one that fits the soil but nobody grows is a
+    # flag, not an endorsement.
+    local_crops = None
+    if payload.district and payload.state:
+        try:
+            from agrotech_ml.services import crop_suitability
+
+            for item in recommendations:
+                evidence = crop_suitability.local_evidence(
+                    payload.state, payload.district, item.crop, payload.season
+                )
+                if evidence:
+                    item.local = LocalEvidence(**evidence)
+            local_crops = crop_suitability.recommend(
+                payload.state, payload.district, payload.season, limit=6
+            )
+        except Exception as exc:  # never fail a prediction over the extra layer
+            logger.warning("local crop evidence unavailable: %s", exc)
+
     response = PredictionResponse(
         recommendations=recommendations,
         field_actions=actions,
         best_model=best_model_name,
         generated_at=datetime.now(UTC),
+        local_crops=local_crops,
     )
     _store_advisory(
         settings,

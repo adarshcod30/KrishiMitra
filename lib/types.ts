@@ -24,7 +24,43 @@ export type SoilPayload = Record<SoilFeatureKey, number> & {
   farmer_id?: string | null;
   mobile?: string | null;
   language: LanguageCode;
+  /**
+   * Optional. When the farmer's district is known the API pairs each soil
+   * recommendation with five years of government district returns. Omit them
+   * and the response is exactly as before.
+   */
+  state?: string | null;
+  district?: string | null;
+  season?: string | null;
 };
+
+/** District evidence for a crop, from the DES Area/Production/Yield returns. */
+export interface LocalEvidence {
+  grown_locally: boolean;
+  season: string;
+  area_ha?: number | null;
+  median_yield?: number | null;
+  yield_unit: string;
+  rank_in_district?: number | null;
+  why: string;
+}
+
+export interface LocalCropItem {
+  crop: string;
+  season: string;
+  score: number;
+  median_yield?: number | null;
+  yield_unit: string;
+  area_ha?: number | null;
+  why: string;
+}
+
+export interface LocalCrops {
+  crops: LocalCropItem[];
+  season_used?: string | null;
+  source: string;
+  matched: boolean;
+}
 
 export interface PredictionRecommendation {
   crop: string;
@@ -32,6 +68,8 @@ export interface PredictionRecommendation {
   probability: number;
   confidence: "high" | "medium" | "low";
   agronomy_tip: string;
+  /** Present only when state/district were sent. */
+  local?: LocalEvidence | null;
 }
 
 export interface PredictionResponse {
@@ -39,6 +77,7 @@ export interface PredictionResponse {
   field_actions: string[];
   best_model: string;
   generated_at: string;
+  local_crops?: LocalCrops | null;
 }
 
 export interface ModelScore {

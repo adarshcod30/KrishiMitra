@@ -136,4 +136,52 @@ def _why(row: dict[str, Any]) -> str:
     return "; ".join(parts).capitalize() or "Recorded in the district returns."
 
 
-__all__ = ["recommend", "districts_for_state", "is_available", "SOURCE_NOTE"]
+# The soil model speaks Kaggle's 22-crop vocabulary; the APY returns use the
+# Directorate's names. Bridging them is what lets a soil recommendation carry
+# local evidence. Only unambiguous pairs are mapped - "Other Vegetables" and
+# similar aggregate rows are deliberately left unmatched rather than guessed.
+SOIL_TO_APY = {
+    "rice": "Rice",
+    "maize": "Maize",
+    "banana": "Banana",
+    "cotton": "Cotton(lint)",
+    "jute": "Jute",
+    "coconut": "Coconut",
+    "chickpea": "Gram",
+    "pigeonpeas": "Arhar/Tur",
+    "mungbean": "Moong(Green Gram)",
+    "blackgram": "Urad",
+    "lentil": "Masoor",
+    "mothbeans": "Moth",
+    "coffee": "Coffee",
+    "mango": "Mango",
+}
+
+
+def local_evidence(state: str, district: str, soil_crop: str, season: str | None = None) -> dict[str, Any] | None:
+    """District evidence for one soil-model crop, or None when unmapped/absent."""
+    apy_name = SOIL_TO_APY.get((soil_crop or "").strip().lower())
+    if not apy_name:
+        return None
+    rows = _load().get((normalize(state), normalize(district)), [])
+    if not rows:
+        return None
+    matches = [r for r in rows if r["crop"] == apy_name]
+    if season:
+        seasonal = [r for r in matches if r["season"].lower() == season.lower()]
+        matches = seasonal or matches
+    if not matches:
+        return None
+    row = max(matches, key=lambda r: r["score"] or 0)
+    return {
+        "grown_locally": True,
+        "season": row["season"],
+        "area_ha": row["area_median_ha"],
+        "median_yield": row["yield_median"],
+        "yield_unit": row.get("yield_unit") or "t/ha",
+        "rank_in_district": row["rank_in_district"],
+        "why": _why(row),
+    }
+
+
+__all__ = ["recommend", "local_evidence", "SOIL_TO_APY", "districts_for_state", "is_available", "SOURCE_NOTE"]

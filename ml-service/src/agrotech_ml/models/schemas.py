@@ -9,6 +9,18 @@ LanguageCode = Literal[
 ]
 
 
+class LocalEvidence(BaseModel):
+    """District-level evidence for a recommended crop, from the APY returns."""
+
+    grown_locally: bool = True
+    season: str
+    area_ha: float | None = None
+    median_yield: float | None = None
+    yield_unit: str = "t/ha"
+    rank_in_district: int | None = None
+    why: str = ""
+
+
 class SoilWeatherInput(BaseModel):
     N: float = Field(..., ge=0, le=200)
     P: float = Field(..., ge=0, le=200)
@@ -20,6 +32,11 @@ class SoilWeatherInput(BaseModel):
     farmer_id: str | None = None
     mobile: str | None = None
     language: LanguageCode = "en"
+    # Optional: when the farmer's district is known the response carries local
+    # evidence for each crop. Absent them the endpoint behaves exactly as before.
+    state: str | None = None
+    district: str | None = None
+    season: str | None = None
 
 
 class PredictionItem(BaseModel):
@@ -28,6 +45,8 @@ class PredictionItem(BaseModel):
     probability: float = Field(..., ge=0, le=1)
     confidence: Literal["high", "medium", "low"]
     agronomy_tip: str
+    # Populated only when state/district were supplied on the request.
+    local: LocalEvidence | None = None
 
 
 class PredictionResponse(BaseModel):
@@ -35,6 +54,7 @@ class PredictionResponse(BaseModel):
     field_actions: list[str]
     best_model: str
     generated_at: datetime
+    local_crops: dict | None = None
 
 
 class ModelScore(BaseModel):
