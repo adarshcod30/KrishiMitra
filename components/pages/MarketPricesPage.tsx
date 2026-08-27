@@ -225,6 +225,18 @@ export function MarketPricesPage() {
                           {trendLabel(item.trend)}
                         </span>
                       )}
+                      {item.typical_min != null && item.typical_max != null && (
+                        <div
+                          className="field-help"
+                          style={{ margin: "0.35rem 0 0", textAlign: "right" }}
+                        >
+                          Usual this month: {Math.round(item.typical_min).toLocaleString()}
+                          {"–"}
+                          {Math.round(item.typical_max).toLocaleString()} per quintal
+                          {item.price_note ? ` · ${item.price_note}` : ""}
+                          {item.season_note ? ` · ${item.season_note}` : ""}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

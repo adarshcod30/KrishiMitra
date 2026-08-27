@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
 import { EmptyState, ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
 import { Icon } from "@/components/ui/Icons";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { analyzeSoil } from "@/lib/api";
+import { analyzeSoil, fetchSoilBaseline } from "@/lib/api";
 import { FEATURE_INPUTS } from "@/lib/constants";
 import { toUserMessage } from "@/lib/errors";
 import type { TranslationKey } from "@/lib/i18n";
-import type { SoilAnalysisResponse } from "@/lib/types";
+import type { SoilBaseline, SoilAnalysisResponse } from "@/lib/types";
 
 /**
  * Numeric ranges come from the shared feature definitions so the help line
@@ -42,6 +42,43 @@ export function SoilHealthPage() {
   const [result, setResult] = useState<SoilAnalysisResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // District soil profile from Soil Health Card samples - fetched when the
+  // active farmer has a district, so a farmer with no lab report can start
+  // from what their district's soils actually test as.
+  const [baseline, setBaseline] = useState<SoilBaseline | null>(null);
+
+  const farmerState = activeFarmer?.state ?? null;
+  const farmerDistrict = activeFarmer?.district ?? null;
+  useEffect(() => {
+    if (!farmerState || !farmerDistrict) {
+      setBaseline(null);
+      return;
+    }
+    let cancelled = false;
+    fetchSoilBaseline(farmerState, farmerDistrict)
+      .then((data) => {
+        if (!cancelled) setBaseline(data.matched ? data : null);
+      })
+      .catch(() => {
+        // The baseline is an enhancement; its absence must never block the page.
+        if (!cancelled) setBaseline(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [farmerState, farmerDistrict]);
+
+  function applyBaseline() {
+    const prefill = baseline?.prefill;
+    if (!prefill) return;
+    setInput((previous) => ({
+      ...previous,
+      ...(prefill.N != null ? { N: prefill.N } : {}),
+      ...(prefill.P != null ? { P: prefill.P } : {}),
+      ...(prefill.K != null ? { K: prefill.K } : {}),
+      ...(prefill.ph != null ? { ph: prefill.ph } : {})
+    }));
+  }
 
   async function handleAnalyze() {
     setBusy(true);
@@ -103,6 +140,40 @@ export function SoilHealthPage() {
       <section className="grid-2-cols mt-4">
         <article className="surface-card">
           <h3 className="section-title">{t("soil.inputTitle")}</h3>
+
+          {baseline && (
+            <div className="result-card" style={{ marginBottom: "1rem" }}>
+              <div className="tips-title">
+                Typical soil in {baseline.district}
+              </div>
+              <p className="tips-content" style={{ marginTop: "0.35rem" }}>
+                Based on {baseline.samples?.toLocaleString()} soil tests from the
+                government Soil Health Card programme:
+                {" "}
+                {Object.entries(baseline.nutrients ?? {})
+                  .map(([name, info]) => `${name} mostly ${info.dominant_class}`)
+                  .join(", ")}
+                {baseline.ph ? `; soil is mostly ${baseline.ph.dominant_class}` : ""}.
+              </p>
+              {baseline.widespread_deficiencies && (
+                <p className="tips-content" style={{ marginTop: "0.35rem" }}>
+                  Widespread deficiencies here:{" "}
+                  {Object.entries(baseline.widespread_deficiencies)
+                    .map(([el, pct]) => `${el} (${Math.round(pct)}% of samples)`)
+                    .join(", ")}
+                  .
+                </p>
+              )}
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ marginTop: "0.75rem" }}
+                onClick={applyBaseline}
+              >
+                No soil report? Use my district&rsquo;s typical values
+              </button>
+            </div>
+          )}
 
           <div className="grid-2-cols">
             {NUMERIC_FIELDS.map((field) => renderNumberField(field.key, field.labelKey))}

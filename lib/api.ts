@@ -30,6 +30,7 @@ import type {
   SchemeResponse,
   SearchResultItem,
   SoilAnalysisRequest,
+  SoilBaseline,
   SoilAnalysisResponse,
   SoilPayload,
   UploadAsset,
@@ -234,6 +235,12 @@ export function recommendFertilizer(
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+/** Typical soil profile for a district, from Soil Health Card samples. */
+export function fetchSoilBaseline(state: string, district: string): Promise<SoilBaseline> {
+  const params = new URLSearchParams({ state, district });
+  return requestJson(`/soil/baseline?${params.toString()}`);
 }
 
 export function analyzeSoil(payload: SoilAnalysisRequest): Promise<SoilAnalysisResponse> {

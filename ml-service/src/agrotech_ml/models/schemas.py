@@ -220,6 +220,12 @@ class MarketPriceItem(BaseModel):
     trend: Literal["up", "down", "stable"]
     arrival_date: date | None = None
     source_url: str | None = None
+    # Additive: seasonal context from two years of Agmarknet history. Absent
+    # for commodities outside that history - no invented claims.
+    typical_min: float | None = None
+    typical_max: float | None = None
+    season_note: str | None = None
+    price_note: str | None = None
 
 
 class RentalTool(BaseModel):

@@ -248,6 +248,27 @@ export interface SchemeResponse {
   note?: string | null;
 }
 
+export interface SoilBaselineNutrient {
+  dominant_class: "low" | "medium" | "high";
+  share_pct: number;
+  low_pct?: number | null;
+  medium_pct?: number | null;
+  high_pct?: number | null;
+}
+
+/** District soil profile from Soil Health Card samples. */
+export interface SoilBaseline {
+  matched: boolean;
+  district?: string;
+  state?: string;
+  samples?: number;
+  source: string;
+  nutrients?: Record<string, SoilBaselineNutrient>;
+  ph?: { dominant_class: string; share_pct: number };
+  widespread_deficiencies?: Record<string, number>;
+  prefill?: { N?: number; P?: number; K?: number; ph?: number };
+}
+
 export interface MarketPriceItem {
   crop: string;
   mandi: string;
@@ -258,6 +279,11 @@ export interface MarketPriceItem {
   arrival_date?: string | null;
   /** Additive: link to the data.gov.in / Agmarknet source row. */
   source_url?: string | null;
+  /** Seasonal context from Agmarknet history; absent for uncovered crops. */
+  typical_min?: number | null;
+  typical_max?: number | null;
+  season_note?: string | null;
+  price_note?: string | null;
 }
 
 export interface RentalTool {

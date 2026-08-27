@@ -95,7 +95,7 @@ from agrotech_ml.models.schemas import (
 )
 from agrotech_ml.core.settings import get_settings
 from agrotech_ml.db.storage import get_farmer_workspace, resolve_mobile, save_upload
-from agrotech_ml.services import crop_suitability, leaf_diagnosis, retrain_job
+from agrotech_ml.services import crop_suitability, leaf_diagnosis, market_insights, retrain_job, shc_baselines
 from agrotech_ml.services.training import load_metadata
 from agrotech_ml.services.upload_service import (
     OCTET_STREAM,
@@ -396,7 +396,19 @@ def market_prices(
     Always 200: the service layer swallows upstream failures and serves
     ``data/market_prices_sample.csv`` instead.
     """
-    return localize_market_prices(settings, language, crop=crop, state=state)
+    items = localize_market_prices(settings, language, crop=crop, state=state)
+    # Attach "typical for this month" context where two years of Agmarknet
+    # history cover the commodity; other rows stay untouched.
+    for item in items:
+        context = market_insights.context_for(
+            item.crop, item.state, item.modal_price_inr_quintal
+        )
+        if context:
+            item.typical_min = context.get("typical_min")
+            item.typical_max = context.get("typical_max")
+            item.season_note = context.get("season_note")
+            item.price_note = context.get("price_note")
+    return items
 
 
 @app.get("/rentals/tools", response_model=list[RentalTool])
@@ -485,6 +497,24 @@ def fetch_farms(mobile: str, auth: AuthContext = Auth) -> list[FarmProfile]:
 # ---------------------------------------------------------------------------
 # Uploads
 # ---------------------------------------------------------------------------
+
+
+@app.get("/soil/baseline")
+def soil_baseline(
+    state: str = Query(..., min_length=2),
+    district: str = Query(..., min_length=2),
+    auth: AuthContext = Auth,
+) -> dict:
+    """Typical soil profile for a district, from Soil Health Card samples.
+
+    Lets the Soil Check form start from the district's real tested profile when
+    a farmer has no lab report, and gives their own numbers local context.
+    Returns {"matched": false} when the district has no SHC samples.
+    """
+    baseline = shc_baselines.baseline_for(state, district)
+    if baseline is None:
+        return {"matched": False, "source": shc_baselines.SOURCE_NOTE}
+    return {"matched": True, **baseline}
 
 
 @app.get("/crops/local")
