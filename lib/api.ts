@@ -3,6 +3,7 @@ import {
   MIN_FARMER_SEARCH_LENGTH,
   MIN_LOCATION_SEARCH_LENGTH
 } from "@/lib/constants";
+import { fetchWeatherDirect, searchLocationsDirect } from "@/lib/weather-direct";
 import { ApiError, NETWORK_ERROR_STATUS, ValidationError, apiErrorFromResponse } from "@/lib/errors";
 import type {
   AdvisoryRecord,
@@ -274,18 +275,30 @@ export function analyzeSoil(payload: SoilAnalysisRequest): Promise<SoilAnalysisR
   });
 }
 
-export function fetchWeather(
+/**
+ * Forecast, fetched from the farmer's own browser first.
+ *
+ * Open-Meteo rate-limits per IP and our backend sits behind a shared free-tier
+ * egress IP that is currently exhausted (every server-side call returns 429).
+ * Going direct spends the farmer's own allowance instead, and only falls back
+ * to the API when their network blocks the request.
+ */
+export async function fetchWeather(
   latitude: number,
   longitude: number,
   language: LanguageCode,
   days = 7
 ): Promise<WeatherResponse> {
-  return requestJson(
-    `/weather/forecast?latitude=${latitude}&longitude=${longitude}&language=${language}&days=${days}`
-  );
+  try {
+    return await fetchWeatherDirect(latitude, longitude, language, days);
+  } catch {
+    return requestJson(
+      `/weather/forecast?latitude=${latitude}&longitude=${longitude}&language=${language}&days=${days}`
+    );
+  }
 }
 
-export function searchLocations(query: string): Promise<LocationSearchItem[]> {
+export async function searchLocations(query: string): Promise<LocationSearchItem[]> {
   const trimmed = query.trim();
   if (trimmed.length < MIN_LOCATION_SEARCH_LENGTH) {
     return Promise.reject(
@@ -294,7 +307,13 @@ export function searchLocations(query: string): Promise<LocationSearchItem[]> {
       )
     );
   }
-  return requestJson(`/locations/search?q=${encodeURIComponent(trimmed)}`);
+  // Same reasoning as fetchWeather: go direct from the farmer's own IP, and
+  // only fall back to our rate-limited backend if that is blocked.
+  try {
+    return await searchLocationsDirect(trimmed);
+  } catch {
+    return requestJson(`/locations/search?q=${encodeURIComponent(trimmed)}`);
+  }
 }
 
 export function fetchSchemes(
