@@ -78,7 +78,7 @@ export function FertilizerPage() {
                 value={input.crop}
                 onChange={(e) => setInput((p) => ({ ...p, crop: e.target.value }))}
               />
-              <p className="field-help">The crop you are growing now, e.g. wheat.</p>
+              <p className="field-help">{t("help.cropNow")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="fert-soil">
@@ -90,7 +90,7 @@ export function FertilizerPage() {
                 value={input.soil_type}
                 onChange={(e) => setInput((p) => ({ ...p, soil_type: e.target.value }))}
               />
-              <p className="field-help">Loam, clay, sandy or black soil.</p>
+              <p className="field-help">{t("help.soilType")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="fert-n">
@@ -104,7 +104,7 @@ export function FertilizerPage() {
                 value={input.N}
                 onChange={(e) => setInput((p) => ({ ...p, N: Number(e.target.value) }))}
               />
-              <p className="field-help">From your soil test report. Normal range 0-140.</p>
+              <p className="field-help">{t("help.nitrogen")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="fert-p">
@@ -118,7 +118,7 @@ export function FertilizerPage() {
                 value={input.P}
                 onChange={(e) => setInput((p) => ({ ...p, P: Number(e.target.value) }))}
               />
-              <p className="field-help">From your soil test report. Normal range 5-145.</p>
+              <p className="field-help">{t("help.phosphorus")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="fert-k">
@@ -132,7 +132,7 @@ export function FertilizerPage() {
                 value={input.K}
                 onChange={(e) => setInput((p) => ({ ...p, K: Number(e.target.value) }))}
               />
-              <p className="field-help">From your soil test report. Normal range 5-205.</p>
+              <p className="field-help">{t("help.potassium")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="fert-ph">

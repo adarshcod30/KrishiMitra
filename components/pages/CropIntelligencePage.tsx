@@ -205,7 +205,7 @@ export function CropIntelligencePage() {
 
                 {topPick.local && (
                   <div className="tips-section" style={{ marginTop: "1rem" }}>
-                    <div className="tips-title">In your district</div>
+                    <div className="tips-title">{t("label.inYourDistrict")}</div>
                     <p className="tips-content">
                       Rank {topPick.local.rank_in_district} of the crops grown here in{" "}
                       {topPick.local.season}

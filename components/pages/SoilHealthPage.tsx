@@ -281,7 +281,7 @@ export function SoilHealthPage() {
                       practices ("Split nitrogen application"), not crop names, so
                       labelling it "What to Grow" (nav.crop) misled farmers. A
                       neutral heading stays correct if the API later returns crops. */}
-                  <div className="tips-title">Recommended focus</div>
+                  <div className="tips-title">{t("label.recommendedFocus")}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.4rem" }}>
                     {result.recommended_crop_focus.map((crop) => (
                       <span key={crop} className="badge badge-success">

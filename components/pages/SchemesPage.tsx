@@ -96,7 +96,7 @@ export function SchemesPage() {
                   <option key={ft} value={ft}>{t(`schemes.type_${ft}`)}</option>
                 ))}
               </select>
-              <p className="field-help">Based on how much land you own. Not sure? Pick Small.</p>
+              <p className="field-help">{t("help.farmerType")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="scheme-land">
@@ -110,7 +110,7 @@ export function SchemesPage() {
                 value={input.land_size_acres}
                 onChange={(e) => setInput((p) => ({ ...p, land_size_acres: Number(e.target.value) }))}
               />
-              <p className="field-help">How much land you farm, in acres.</p>
+              <p className="field-help">{t("help.landSize")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="scheme-income">

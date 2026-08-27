@@ -140,7 +140,7 @@ export function PestDetectionPage() {
                 value={crop}
                 onChange={(event) => setCrop(event.target.value)}
               />
-              <p className="field-help">Which crop has the problem, e.g. rice.</p>
+              <p className="field-help">{t("help.pestCrop")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="pest-symptoms">
@@ -153,7 +153,7 @@ export function PestDetectionPage() {
                 value={symptoms}
                 onChange={(event) => setSymptoms(event.target.value)}
               />
-              <p className="field-help">Describe what you see - yellow leaves, spots, insects...</p>
+              <p className="field-help">{t("help.symptoms")}</p>
             </div>
             <div>
               <label className="field-label" htmlFor="pest-photo">
@@ -214,7 +214,7 @@ export function PestDetectionPage() {
             <LoadingState icon="pest" />
           ) : result ? (
             <div className={`result-card ${severityCardClass}`}>
-              <span className="stat-label">Likely problem</span>
+              <span className="stat-label">{t("label.likelyProblem")}</span>
               <p className="stat-value" style={{ color: "var(--ink)", marginBottom: "0.5rem" }}>
                 {result.disease}
               </p>

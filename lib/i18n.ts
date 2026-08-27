@@ -222,9 +222,23 @@ const en = {
   "feedback.saveFailed": "Could not save. Please try again.",
   "feedback.selectFarmerFirst": "Select a farmer before uploading evidence.",
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
+  "help.cropNow": "The crop you are growing now, e.g. wheat.",
+  "help.soilType": "Loam, clay, sandy or black soil.",
+  "help.nitrogen": "From your soil test report. Normal range 0-140.",
+  "help.phosphorus": "From your soil test report. Normal range 5-145.",
+  "help.potassium": "From your soil test report. Normal range 5-205.",
+  "help.pestCrop": "Which crop has the problem, e.g. rice.",
+  "help.symptoms": "Describe what you see - yellow leaves, spots, insects...",
+  "help.farmerType": "Based on how much land you own. Not sure? Pick Small.",
+  "help.landSize": "How much land you farm, in acres.",
+  "help.income": "Your family's income for one full year. 1 lakh = 1,00,000 rupees.",
+  "label.likelyProblem": "Likely problem",
+  "label.inYourDistrict": "In your district",
+  "label.recommendedFocus": "Recommended focus",
+  "history.noAdvice": "No saved advice yet. Results from the other tools will appear here.",
 } as const;
 
-const hi: Record<keyof typeof en, string> = {
+const hi: Partial<Record<keyof typeof en, string>> = {
   "app.name": "कृषिमित्र",
   "app.tagline": "खेती का सही फैसला, सही समय पर",
   "common.language": "भाषा",
@@ -446,9 +460,23 @@ const hi: Record<keyof typeof en, string> = {
   "feedback.saveFailed": "सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।",
   "feedback.selectFarmerFirst": "प्रमाण अपलोड करने से पहले एक किसान चुनें।",
   "feedback.selectFileFirst": "अपलोड करने से पहले एक छवि या पीडीएफ चुनें।",
+  "help.cropNow": "अभी आप जो फसल उगा रहे हैं, जैसे गेहूँ।",
+  "help.soilType": "दोमट, चिकनी, बलुई या काली मिट्टी।",
+  "help.nitrogen": "आपकी मिट्टी जाँच रिपोर्ट से। सामान्य सीमा 0-140।",
+  "help.phosphorus": "आपकी मिट्टी जाँच रिपोर्ट से। सामान्य सीमा 5-145।",
+  "help.potassium": "आपकी मिट्टी जाँच रिपोर्ट से। सामान्य सीमा 5-205।",
+  "help.pestCrop": "किस फसल में समस्या है, जैसे धान।",
+  "help.symptoms": "जो दिख रहा है वह बताएं - पीले पत्ते, धब्बे, कीड़े...",
+  "help.farmerType": "आपके पास कितनी ज़मीन है उस पर आधारित। पता नहीं? छोटा चुनें।",
+  "help.landSize": "आप कितनी ज़मीन पर खेती करते हैं, एकड़ में।",
+  "help.income": "आपके परिवार की एक साल की आय। 1 लाख = 1,00,000 रुपये।",
+  "label.likelyProblem": "संभावित समस्या",
+  "label.inYourDistrict": "आपके ज़िले में",
+  "label.recommendedFocus": "सुझाया गया ध्यान",
+  "history.noAdvice": "अभी कोई सहेजी गई सलाह नहीं। बाकी टूल के नतीजे यहाँ दिखेंगे।",
 };
 
-const bn: Record<keyof typeof en, string> = {
+const bn: Partial<Record<keyof typeof en, string>> = {
   "app.name": "কৃষিমিত্র অ্যাগ্রোটেক",
   "app.tagline": "কৃষি বুদ্ধিমত্তা মঞ্চ",
   "common.language": "ভাষা",
@@ -672,7 +700,7 @@ const bn: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const te: Record<keyof typeof en, string> = {
+const te: Partial<Record<keyof typeof en, string>> = {
   "app.name": "కృషిమిత్ర అగ్రోటెక్",
   "app.tagline": "వ్యవసాయ మేధస్సు వేదిక",
   "common.language": "భాష",
@@ -896,7 +924,7 @@ const te: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const ta: Record<keyof typeof en, string> = {
+const ta: Partial<Record<keyof typeof en, string>> = {
   "app.name": "கிருஷிமித்ரா அக்ரோடெக்",
   "app.tagline": "வேளாண் நுண்ணறிவு தளம்",
   "common.language": "மொழி",
@@ -1120,7 +1148,7 @@ const ta: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const mr: Record<keyof typeof en, string> = {
+const mr: Partial<Record<keyof typeof en, string>> = {
   "app.name": "कृषिमित्र अॅग्रोटेक",
   "app.tagline": "कृषी बुद्धिमत्ता व्यासपीठ",
   "common.language": "भाषा",
@@ -1344,7 +1372,7 @@ const mr: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const gu: Record<keyof typeof en, string> = {
+const gu: Partial<Record<keyof typeof en, string>> = {
   "app.name": "કૃષિમિત્ર એગ્રોટેક",
   "app.tagline": "કૃષિ બુદ્ધિમત્તા મંચ",
   "common.language": "ભાષા",
@@ -1568,7 +1596,7 @@ const gu: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const kn: Record<keyof typeof en, string> = {
+const kn: Partial<Record<keyof typeof en, string>> = {
   "app.name": "ಕೃಷಿಮಿತ್ರ ಆಗ್ರೋಟೆಕ್",
   "app.tagline": "ಕೃಷಿ ಬುದ್ಧಿಮತ್ತೆ ವೇದಿಕೆ",
   "common.language": "ಭಾಷೆ",
@@ -1792,7 +1820,7 @@ const kn: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const ml: Record<keyof typeof en, string> = {
+const ml: Partial<Record<keyof typeof en, string>> = {
   "app.name": "കൃഷിമിത്ര അഗ്രോടെക്",
   "app.tagline": "കാർഷിക ബുദ്ധിമത്ത വേദി",
   "common.language": "ഭാഷ",
@@ -2016,7 +2044,7 @@ const ml: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const pa: Record<keyof typeof en, string> = {
+const pa: Partial<Record<keyof typeof en, string>> = {
   "app.name": "ਕ੍ਰਿਸ਼ੀਮਿੱਤਰ ਐਗਰੋਟੈੱਕ",
   "app.tagline": "ਖੇਤੀ ਬੁੱਧੀਮੱਤਾ ਮੰਚ",
   "common.language": "ਭਾਸ਼ਾ",
@@ -2240,7 +2268,7 @@ const pa: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-const or: Record<keyof typeof en, string> = {
+const or: Partial<Record<keyof typeof en, string>> = {
   "app.name": "କୃଷିମିତ୍ର ଆଗ୍ରୋଟେକ",
   "app.tagline": "କୃଷି ବୁଦ୍ଧିମତ୍ତା ମଞ୍ଚ",
   "common.language": "ଭାଷା",
@@ -2464,7 +2492,15 @@ const or: Record<keyof typeof en, string> = {
   "feedback.selectFileFirst": "Choose an image or PDF before uploading.",
 };
 
-export const translations: Record<LanguageCode, Record<keyof typeof en, string>> = {
+/**
+ * English is complete; every other language is a Partial. `t()` falls back to
+ * the English string for anything missing, so a key is translated only when a
+ * real translation exists rather than being padded with English that merely
+ * looks translated.
+ */
+export const translations: Record<LanguageCode, Partial<Record<keyof typeof en, string>>> & {
+  en: Record<keyof typeof en, string>;
+} = {
   en,
   hi,
   bn,

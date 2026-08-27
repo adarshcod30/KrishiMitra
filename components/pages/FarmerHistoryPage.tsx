@@ -581,7 +581,7 @@ export function FarmerHistoryPage() {
                 ) : (
                   <div className="empty-state">
                     <Icon name="history" size={30} />
-                    <p>No saved advice yet. Results from the other tools will appear here.</p>
+                    <p>{t("history.noAdvice")}</p>
                   </div>
                 )}
               </article>
