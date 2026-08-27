@@ -177,7 +177,7 @@ def _model_dependency_error(exc: ModelArtifactsMissing) -> HTTPException:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, object]:
     return {
         "status": "ok",
@@ -188,7 +188,10 @@ def health() -> dict[str, object]:
     }
 
 
-@app.get("/warmup")
+# HEAD as well as GET: uptime monitors (UptimeRobot and friends) probe with
+# HEAD by default, and a GET-only route answers 405 - which reads as "down"
+# forever on the monitor's dashboard even though the service is healthy.
+@app.api_route("/warmup", methods=["GET", "HEAD"])
 def warmup(background_tasks: BackgroundTasks) -> dict[str, object]:
     """Keep-alive ping for free-tier hosts that spin the instance down.
 
