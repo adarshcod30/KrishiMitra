@@ -38,9 +38,13 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png"}
 # Folder name -> (crop, human-readable condition). Keeps the model's labels
 # aligned with the vocabulary the text diagnosis already uses.
 CLASS_MAP = {
-    "bacterial leaf blight": ("rice", "Bacterial Leaf Blight"),
-    "brown spot": ("rice", "Brown Spot"),
-    "leaf smut": ("rice", "Leaf Smut"),
+    # Mendeley rice corpus (CC0, ~1.5k images per class). Supersedes the older
+    # 40-image-per-class set, which had no treatment entry for Leaf Smut and
+    # scored f1 0.62; these four all resolve to library advice with Hindi text.
+    "bacterialblight": ("rice", "Bacterial Leaf Blight"),
+    "blast": ("rice", "Rice Blast"),
+    "brownspot": ("rice", "Brown Spot"),
+    "tungro": ("rice", "Rice Tungro"),
     "bacterial_blight": ("cotton", "Bacterial Blight"),
     "curl_virus": ("cotton", "Cotton Leaf Curl Virus"),
     "fussarium_wilt": ("cotton", "Fusarium Wilt"),
@@ -111,6 +115,12 @@ def train_from_features() -> int:
         "n_images": len(labels),
         "trained_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }, artifacts / "leaf_model.joblib")
+    (ROOT / "data" / "leaf_model_card.json").write_text(json.dumps({
+        "accuracy": round(float(accuracy), 4),
+        "n_images": len(labels),
+        "classes": sorted(set(labels.tolist())),
+        "rebuilt_from": "data/leaf_features.csv",
+    }, indent=2))
     print(f"wrote leaf_model.joblib ({(artifacts/'leaf_model.joblib').stat().st_size/1e6:.1f} MB)")
     return 0
 

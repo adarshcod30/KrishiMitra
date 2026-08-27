@@ -1,6 +1,6 @@
 {
-  "accuracy": 0.8368,
-  "n_images": 4350,
+  "accuracy": 0.9375,
+  "n_images": 10162,
   "classes": [
     "cotton|Bacterial Blight",
     "cotton|Cotton Leaf Curl Virus",
@@ -8,11 +8,13 @@
     "cotton|Healthy",
     "rice|Bacterial Leaf Blight",
     "rice|Brown Spot",
-    "rice|Leaf Smut",
+    "rice|Rice Blast",
+    "rice|Rice Tungro",
     "sugarcane|Healthy",
     "sugarcane|Mosaic",
     "sugarcane|Red Rot",
     "sugarcane|Rust",
     "sugarcane|Yellow Leaf Disease"
-  ]
+  ],
+  "rebuilt_from": "data/leaf_features.csv"
 }
