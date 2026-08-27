@@ -3,14 +3,16 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
-import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getIrrigationSchedule } from "@/lib/api";
-import { DEFAULT_IRRIGATION_PAYLOAD } from "@/lib/constants";
+import { DEFAULT_IRRIGATION_PAYLOAD, FEATURE_INPUTS } from "@/lib/constants";
 import { toUserMessage } from "@/lib/errors";
 import type { IrrigationResponse } from "@/lib/types";
+
+const RAINFALL_RANGE = FEATURE_INPUTS.find((field) => field.key === "rainfall");
 
 export function IrrigationPlannerPage() {
   const { t, language } = useLanguage();
@@ -32,154 +34,209 @@ export function IrrigationPlannerPage() {
       });
       setResult(response);
     } catch (caught) {
-      // Without this the rejection is unhandled and the spinner just stops.
+      // Without this the rejection is unhandled and the busy state just stops.
       setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
   }
 
+  const nextEvent = result?.events[0];
+  const laterEvents = result?.events.slice(1, 5) ?? [];
+
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.irrigation")}
-        title={t("irrigation.title")}
-        description={t("irrigation.subtitle")}
-      />
+      <div className="page-header">
+        <h1 className="page-title">{t("nav.irrigation")}</h1>
+        <p className="page-subtitle">{t("irrigation.subtitle")}</p>
+      </div>
       <ActiveFarmerBanner />
 
-      <section className="dashboard-grid mt-4">
+      <section className="grid-2-cols mt-4">
         <article className="surface-card">
-          <h3>{t("irrigation.inputTitle")}</h3>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t("farmer.name")}</span>
+          <h3 className="section-title">{t("irrigation.inputTitle")}</h3>
+
+          <div className="grid-2-cols">
+            <div className="field">
+              <label className="field-label" htmlFor="irrigation-name">
+                {t("farmer.name")}
+              </label>
               <input
+                id="irrigation-name"
+                className="field-input"
                 value={input.farmer_name}
                 onChange={(event) =>
                   setInput((prev) => ({ ...prev, farmer_name: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>{t("farmer.village")}</span>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="irrigation-location">
+                {t("farmer.village")}
+              </label>
               <input
+                id="irrigation-location"
+                className="field-input"
                 value={input.location}
                 onChange={(event) =>
                   setInput((prev) => ({ ...prev, location: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>{t("farmer.crop")}</span>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="irrigation-crop">
+                {t("farmer.crop")}
+              </label>
               <input
+                id="irrigation-crop"
+                className="field-input"
                 value={input.crop}
                 onChange={(event) => setInput((prev) => ({ ...prev, crop: event.target.value }))}
               />
-            </label>
-            <label className="field">
-              <span>{t("farmer.farmSize")}</span>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="irrigation-size">
+                {t("farmer.farmSize")}
+              </label>
               <input
+                id="irrigation-size"
+                className="field-input"
                 type="number"
+                inputMode="decimal"
+                min={0}
                 value={input.land_size}
                 onChange={(event) =>
                   setInput((prev) => ({ ...prev, land_size: Number(event.target.value) }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>{t("farmer.soilType")}</span>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="irrigation-soil">
+                {t("farmer.soilType")}
+              </label>
               <input
+                id="irrigation-soil"
+                className="field-input"
                 value={input.soil_type}
                 onChange={(event) =>
                   setInput((prev) => ({ ...prev, soil_type: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>{t("common.rainfall")}</span>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="irrigation-rainfall">
+                {t("common.rainfall")}
+              </label>
               <input
+                id="irrigation-rainfall"
+                className="field-input"
                 type="number"
+                inputMode="decimal"
+                min={RAINFALL_RANGE?.min}
+                max={RAINFALL_RANGE?.max}
+                step={RAINFALL_RANGE?.step}
                 value={input.rainfall}
                 onChange={(event) =>
                   setInput((prev) => ({ ...prev, rainfall: Number(event.target.value) }))
                 }
               />
-            </label>
+              {RAINFALL_RANGE ? (
+                <p className="field-help">
+                  {RAINFALL_RANGE.min} &ndash; {RAINFALL_RANGE.max} {RAINFALL_RANGE.unit}
+                </p>
+              ) : null}
+            </div>
           </div>
+
           {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
-          <button type="button" className="primary-btn" onClick={handleGenerate} disabled={busy}>
+
+          <button type="button" className="btn-primary" onClick={handleGenerate} disabled={busy}>
             {busy ? t("common.loading") : t("common.generate")}
           </button>
         </article>
 
         <article className="surface-card">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="mb-0">{t("irrigation.outputTitle")}</h3>
-            {result && (
-              <div className="status-badge info">
-                💧 {t("nav.irrigation")}
-              </div>
-            )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.75rem",
+              marginBottom: "1rem"
+            }}
+          >
+            <h3 className="section-title mb-0">{t("irrigation.outputTitle")}</h3>
+            {result && <span className="badge badge-info">{result.crop}</span>}
           </div>
 
           {busy && !result ? (
-            <LoadingState icon="💧" />
-          ) : result ? (
-            <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
-              <div className="recommendation-header">
-                <div className="crop-icon-wrapper">💧</div>
-                <div className="recommendation-title-group">
-                  <h4 className="crop-name">{result.crop}</h4>
-                  <p className="text-sm text-ink-secondary mt-1">{t("irrigation.subtitle")}</p>
+            <LoadingState icon="water" />
+          ) : result && nextEvent ? (
+            <div>
+              {/* The answer the farmer came for: the next watering, big. */}
+              <div className="result-card result-card-success">
+                <span className="badge badge-success">{t("nav.irrigation")}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.75rem" }}>
+                  <div className="crop-icon-wrapper">
+                    <Icon name="water" size={30} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "1.9rem", fontWeight: 700, lineHeight: 1.25, color: "var(--ink)" }}>
+                      {nextEvent.date}, {nextEvent.time}
+                    </div>
+                    <div className="stat-item" style={{ marginTop: "0.35rem" }}>
+                      <span className="stat-label">{t("common.water")}</span>
+                      <span className="stat-value">{nextEvent.water_mm} mm</span>
+                    </div>
+                  </div>
                 </div>
+                {nextEvent.message ? (
+                  <div className="tips-section" style={{ marginTop: "1rem" }}>
+                    <p className="tips-content">{nextEvent.message}</p>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="mt-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl">📅</span>
-                  <span className="tips-title mb-0">Upcoming Schedule</span>
+              {laterEvents.length > 0 && (
+                <div style={{ marginTop: "1rem" }}>
+                  <div className="tips-title">{t("irrigation.outputTitle")}</div>
+                  {laterEvents.map((event, idx) => (
+                    <div key={`${event.date}-${event.time}-${idx}`} className="list-row">
+                      <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                        <span style={{ display: "flex", color: "var(--brand-dark)" }} aria-hidden="true">
+                          <Icon name="calendar" size={20} />
+                        </span>
+                        <span>
+                          <span style={{ display: "block", fontWeight: 600 }}>{event.date}</span>
+                          <span style={{ display: "block", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
+                            {event.time}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="badge badge-info">{event.water_mm} mm</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="premium-list">
-                  {result.events.slice(0, 5).map((event, idx) => (
-                    <div key={idx} className="premium-list-item">
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-3">
-                          <span className="icon">⌚</span>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold">{event.time}</span>
-                            <span className="text-xs text-muted">{event.date}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           <span className="badge badge-accent">{event.water_mm} mm</span>
-                        </div>
+              )}
+
+              {result.notes.length > 0 && (
+                <div style={{ marginTop: "1rem" }}>
+                  <div className="tips-title">{t("common.agronomyTip")}</div>
+                  <div className="actions-list">
+                    {result.notes.map((note) => (
+                      <div key={note} className="action-item">
+                        <span className="action-check" aria-hidden="true">
+                          <Icon name="check" size={18} />
+                        </span>
+                        <span>{note}</span>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              <div className="tips-section mt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">💡</span>
-                  <span className="tips-title mb-0">{t("common.agronomyTip")}</span>
-                </div>
-                <div className="premium-list">
-                  {result.notes.map((note, idx) => (
-                    <div key={idx} className="premium-list-item">
-                      <span className="icon">✓</span>
-                      <span className="text italic">{note}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           ) : (
-            <div className="empty-state-illust">
-              <div className="illust-icon">💧</div>
-              <p className="muted-copy">{t("irrigation.empty")}</p>
-            </div>
+            <EmptyState icon="water" message={t("irrigation.empty")} />
           )}
         </article>
       </section>

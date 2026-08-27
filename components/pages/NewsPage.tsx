@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 
 import { AsyncSection } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Icon } from "@/components/ui/Icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchNewsFeed } from "@/lib/api";
 import { useAsyncResource } from "@/lib/hooks";
@@ -16,63 +16,89 @@ export function NewsPage() {
 
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.news")}
-        title={t("news.title")}
-        description={t("news.subtitle")}
-      />
+      <div className="page-header">
+        <h1 className="page-title">{t("nav.news")}</h1>
+        <p className="page-subtitle">{t("news.subtitle")}</p>
+      </div>
 
       <section className="surface-card">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="mb-0">📰 {t("news.latestTitle")}</h3>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            marginBottom: "1rem"
+          }}
+        >
+          <h3 className="section-title" style={{ marginBottom: 0 }}>
+            {t("news.latestTitle")}
+          </h3>
           {newsCount > 0 && (
-            <div className="status-badge info">
-              🌍 {newsCount} {t("nav.news")}
-            </div>
+            <span className="badge badge-info">
+              {newsCount} {t("nav.news")}
+            </span>
           )}
         </div>
 
         <AsyncSection
           resource={newsResource}
-          icon="📰"
+          icon="news"
           emptyMessage={t("news.empty")}
           isEmpty={(items) => items.length === 0}
         >
           {(news) => (
-            <div className="result-layout animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="recommendation-grid">
               {news.map((item, i) => (
-                <div key={`${item.url}-${i}`} className="recommendation-card">
+                <article key={`${item.url}-${i}`} className="recommendation-card">
                   <div className="recommendation-header">
-                    <div className="crop-icon-wrapper" style={{ width: '48px', height: '48px', fontSize: '1.5rem', background: 'var(--brand-subtle)' }}>🌍</div>
+                    <div className="crop-icon-wrapper">
+                      <Icon name="news" size={26} />
+                    </div>
                     <div className="recommendation-title-group">
-                      <h4 className="crop-name" style={{ fontSize: '1.1rem', lineHeight: '1.4' }}>{item.title}</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        <span className="badge badge-brand" style={{ fontSize: '0.7rem' }}>📰 {item.source}</span>
+                      <h4 className="crop-name" style={{ fontSize: "1.1rem", lineHeight: 1.4 }}>
+                        {item.title}
+                      </h4>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          marginTop: "0.35rem"
+                        }}
+                      >
+                        <span className="badge badge-success">{item.source}</span>
                         {item.published_at && (
-                          <span className="text-xs muted-copy" style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center' }}>
-                            📅 {new Date(item.published_at).toLocaleDateString()}
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.3rem",
+                              fontSize: "0.9rem",
+                              color: "var(--ink-secondary)"
+                            }}
+                          >
+                            <Icon name="calendar" size={16} />
+                            {new Date(item.published_at).toLocaleDateString()}
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <p className="tips-content mt-3" style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)' }}>
-                    {item.summary}
-                  </p>
+                  <p className="tips-content">{item.summary}</p>
 
-                  <div className="mt-4 pt-4 border-t border-dashed border-line">
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="badge badge-brand flex items-center justify-center py-2 text-sm no-underline hover-lift"
-                      style={{ background: 'transparent', border: '1px solid var(--brand)', color: 'var(--brand)' }}
-                    >
-                      {t("news.readMore")} →
-                    </a>
-                  </div>
-                </div>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary"
+                  >
+                    {t("news.readMore")}
+                    <Icon name="arrow-right" size={18} />
+                  </a>
+                </article>
               ))}
             </div>
           )}

@@ -3,10 +3,26 @@
 import { useCallback, useRef, useState } from "react";
 
 import { AsyncSection } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchMarketPrices } from "@/lib/api";
 import { useAsyncResource } from "@/lib/hooks";
+
+const iconTitleStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+} as const;
+
+const POPULAR_CROPS = ["Wheat", "Rice", "Potato", "Tomato", "Onion", "Chilli", "Cotton", "Maize"];
+
+const STATES = [
+  "Andhra Pradesh", "Assam", "Bihar", "Chhattisgarh", "Gujarat", "Haryana",
+  "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala",
+  "Madhya Pradesh", "Maharashtra", "Odisha", "Punjab", "Rajasthan", "Tamil Nadu",
+  "Telangana", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+];
 
 export function MarketPricesPage() {
   const { t, language } = useLanguage();
@@ -34,10 +50,23 @@ export function MarketPricesPage() {
     pricesResource.reload();
   }
 
-  const trendIcon = (trend: string) => {
-    if (trend === "up") return "📈";
-    if (trend === "down") return "📉";
-    return "➡️";
+  function resetFilters() {
+    setCropFilter("");
+    setStateFilter("");
+    filtersRef.current = { crop: "", state: "" };
+    pricesResource.reload();
+  }
+
+  const trendBadgeClass = (trend: string) => {
+    if (trend === "up") return "badge-success";
+    if (trend === "down") return "badge-danger";
+    return "badge-info";
+  };
+
+  const trendLabel = (trend: string) => {
+    if (trend === "up") return "Going up";
+    if (trend === "down") return "Going down";
+    return "Steady";
   };
 
   return (
@@ -48,113 +77,136 @@ export function MarketPricesPage() {
         description={t("market.subtitle")}
       />
 
-      <section className="surface-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="mb-0">🔍 {t("market.filterTitle")}</h3>
-        </div>
-        
-        <div className="flex flex-col gap-4">
-          <div className="inline-actions">
-            <input
-              placeholder={t("market.cropPlaceholder")}
-              value={cropFilter}
-              onChange={(e) => setCropFilter(e.target.value)}
-            />
-            <input
-              placeholder={t("market.statePlaceholder")}
-              value={stateFilter}
-              onChange={(e) => setStateFilter(e.target.value)}
-            />
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <section className="surface-card">
+          <h3 className="section-title" style={iconTitleStyle}>
+            <Icon name="search" size={22} />
+            {t("market.filterTitle")}
+          </h3>
+
+          <div className="grid-2-cols">
+            <div>
+              <label className="field-label" htmlFor="market-crop">
+                {t("farmer.crop")}
+              </label>
+              <select
+                id="market-crop"
+                className="field-select"
+                value={cropFilter}
+                onChange={(e) => setCropFilter(e.target.value)}
+              >
+                <option value="">All crops</option>
+                {POPULAR_CROPS.map((crop) => (
+                  <option key={crop} value={crop}>
+                    {crop}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="market-state">
+                {t("farmer.state")}
+              </label>
+              <select
+                id="market-state"
+                className="field-select"
+                value={stateFilter}
+                onChange={(e) => setStateFilter(e.target.value)}
+              >
+                <option value="">All states</option>
+                {STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "1rem" }}>
             <button
               type="button"
-              className="primary-btn small-btn"
+              className="btn-primary"
               onClick={applyFilters}
               disabled={pricesResource.isLoading}
             >
               {pricesResource.isLoading ? t("common.loading") : t("common.search")}
             </button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-line">
-            <span className="text-xs font-bold text-muted uppercase tracking-widest mr-2 self-center">Popular Crops:</span>
-            {["Wheat", "Rice", "Potato", "Tomato", "Onion", "Chilli", "Cotton", "Maize"].map(crop => (
-              <button
-                key={crop}
-                type="button"
-                className={`badge ${cropFilter.toLowerCase() === crop.toLowerCase() ? 'badge-brand' : 'bg-subtle text-ink-secondary'} cursor-pointer hover:bg-brand-subtle transition-colors`}
-                onClick={() => {
-                  setCropFilter(crop);
-                  // We could auto-trigger search here too if desired
-                }}
-              >
-                {crop}
-              </button>
-            ))}
-            <button 
-              type="button" 
-              className="text-xs text-brand font-bold underline ml-auto"
-              onClick={() => {
-                setCropFilter("");
-                setStateFilter("");
-                filtersRef.current = { crop: "", state: "" };
-                pricesResource.reload();
-              }}
-            >
+            <button type="button" className="btn-secondary" onClick={resetFilters}>
               {t("common.reset")}
             </button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="surface-card">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="mb-0">📊 {t("market.priceTable")}</h3>
-          {priceCount > 0 && (
-            <div className="text-xs font-bold text-muted bg-subtle px-3 py-1 rounded-full uppercase tracking-widest">
-              {priceCount} {t("common.results")}
-            </div>
-          )}
-        </div>
+        <section className="surface-card">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.75rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <h3 className="section-title" style={iconTitleStyle}>
+              <Icon name="market" size={22} />
+              {t("market.priceTable")}
+            </h3>
+            {priceCount > 0 && (
+              <span className="badge badge-info" style={{ marginBottom: "1rem" }}>
+                {priceCount} {t("common.results")}
+              </span>
+            )}
+          </div>
 
-        <AsyncSection
-          resource={pricesResource}
-          icon="📊"
-          emptyMessage={t("market.empty")}
-          isEmpty={(items) => items.length === 0}
-        >
-          {(prices) => (
-          <div className="recommendation-grid animate-in fade-in duration-500">
-            {prices.map((item, i) => (
-              <div key={`${item.crop}-${item.mandi}-${i}`} className="premium-card">
-                <div className="flex items-start justify-between">
-                  <div className="recommendation-header">
-                    <div className="crop-icon-wrapper" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>🌾</div>
-                    <div className="recommendation-title-group">
-                      <h4 className="crop-name" style={{ fontSize: '1.25rem' }}>{item.crop}</h4>
-                      <p className="text-xs text-muted font-bold tracking-tight">{item.mandi}</p>
+          <AsyncSection
+            resource={pricesResource}
+            icon="market"
+            emptyMessage={t("market.empty")}
+            isEmpty={(items) => items.length === 0}
+          >
+            {(prices) => (
+              <div>
+                {prices.map((item, i) => (
+                  <div key={`${item.crop}-${item.mandi}-${i}`} className="list-row">
+                    <div>
+                      <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--ink)" }}>
+                        {item.crop}
+                      </div>
+                      <div style={{ fontSize: "0.95rem", color: "var(--ink-secondary)" }}>
+                        {item.mandi}, {item.state}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                          gap: "0.1rem",
+                          fontSize: "1.5rem",
+                          fontWeight: 700,
+                          color: "var(--ink)",
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        <Icon name="rupee" size={22} />
+                        {item.modal_price_inr_quintal}
+                      </div>
+                      <div style={{ fontSize: "0.9rem", color: "var(--ink-secondary)", fontWeight: 600 }}>
+                        per quintal
+                      </div>
+                      <span className={`badge ${trendBadgeClass(item.trend)}`} style={{ marginTop: "0.3rem" }}>
+                        {trendLabel(item.trend)}
+                      </span>
                     </div>
                   </div>
-                  <div className={`status-badge ${item.trend === 'up' ? 'danger' : item.trend === 'down' ? 'success' : 'info'}`}>
-                    {trendIcon(item.trend)} {item.trend.toUpperCase()}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-line flex items-center justify-between">
-                   <div className="flex flex-col">
-                      <span className="text-xs font-bold text-muted uppercase tracking-tighter">Current Price</span>
-                      <span className="text-xl font-black text-ink">₹{item.modal_price_inr_quintal}<span className="text-xs font-normal">/q</span></span>
-                   </div>
-                   <div className="text-right">
-                      <span className="text-xs font-bold text-muted uppercase tracking-tighter">Location</span>
-                      <p className="text-sm font-semibold">{item.state}</p>
-                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-          )}
-        </AsyncSection>
-      </section>
+            )}
+          </AsyncSection>
+        </section>
+      </div>
     </div>
   );
 }

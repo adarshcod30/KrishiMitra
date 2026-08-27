@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
 import { ErrorNotice } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { searchFarmers } from "@/lib/api";
 import { MIN_FARMER_SEARCH_LENGTH } from "@/lib/constants";
 import { toUserMessage } from "@/lib/errors";
@@ -70,75 +72,80 @@ export function FarmerSearchPanel({ compact = false }: { compact?: boolean }) {
   return (
     <section className={`search-panel-airy ${compact ? "compact" : ""}`}>
       <div className="search-header">
-        <h3 className="section-title mb-0">{t("shell.searchFarmers")}</h3>
+        <h3
+          className="section-title"
+          style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}
+        >
+          <Icon name="farmer" size={22} />
+          {t("shell.searchFarmers")}
+        </h3>
         {activeFarmer && (
-          <button type="button" className="ghost-btn small" onClick={clearActiveFarmer}>
+          <button type="button" className="btn-secondary" onClick={clearActiveFarmer}>
             {t("shell.clearFarmer")}
           </button>
         )}
       </div>
 
-      <div className="search-input-group">
-        <input
-          className="airy-input"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("shell.searchPlaceholder")}
-          aria-describedby="farmer-search-hint"
-        />
-        <button
-          type="button"
-          className="primary-btn"
-          onClick={() => void runSearch(query.trim())}
-          disabled={busy || query.trim().length < MIN_FARMER_SEARCH_LENGTH}
-        >
-          {busy ? t("common.loading") : t("common.search")}
-        </button>
+      <p className="field-help" style={{ marginTop: 0 }}>
+        Find your name or register once — your soil reports and advice history are saved.
+      </p>
+
+      <div>
+        <label className="field-label" htmlFor="farmer-search-input">
+          {t("shell.searchPlaceholder")}
+        </label>
+        <div className="search-input-group">
+          <input
+            id="farmer-search-input"
+            className="field-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("shell.searchPlaceholder")}
+            aria-describedby="farmer-search-hint"
+          />
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void runSearch(query.trim())}
+            disabled={busy || query.trim().length < MIN_FARMER_SEARCH_LENGTH}
+          >
+            <Icon name="search" size={20} />
+            {busy ? t("common.loading") : t("common.search")}
+          </button>
+        </div>
+        {isQueryTooShort && (
+          <p id="farmer-search-hint" className="hint-text">
+            {t("feedback.minSearchLength")}
+          </p>
+        )}
       </div>
 
-      {isQueryTooShort && (
-        <p id="farmer-search-hint" className="hint-text">
-          {t("feedback.minSearchLength")}
-        </p>
-      )}
-
-      {activeFarmer ? (
-        <div className="active-farmer-banner">
-          <div className="farmer-status-pill">{t("common.activeFarmer")}</div>
-          <div className="farmer-details">
-            <strong className="farmer-name">{activeFarmer.name}</strong>
-            <span className="farmer-meta">
-              {activeFarmer.farmer_id} • {activeFarmer.mobile}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="active-farmer-banner muted">
-          <div className="farmer-status-pill">{t("common.activeFarmer")}</div>
-          <div className="farmer-details">
-            <strong className="farmer-name text-muted">{t("common.noFarmer")}</strong>
-          </div>
-        </div>
-      )}
+      <ActiveFarmerBanner />
 
       {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
 
       {results.length > 0 ? (
         <div className="search-results-list">
-          {results.map((farmer) => (
-            <button
-              key={farmer.farmer_id}
-              type="button"
-              className="search-result-card"
-              onClick={() => setActiveFarmer(farmer)}
-            >
-              <div className="result-info">
-                <strong>{farmer.name}</strong>
-                <span>{farmer.farmer_id} • {farmer.mobile}</span>
-              </div>
-              <div className="select-pill">{t("common.select")}</div>
-            </button>
-          ))}
+          {results.map((farmer) => {
+            const placeLine = [farmer.village, farmer.district].filter(Boolean).join(", ");
+            return (
+              <button
+                key={farmer.farmer_id}
+                type="button"
+                className="search-result-card"
+                onClick={() => setActiveFarmer(farmer)}
+              >
+                <div className="result-info">
+                  <strong>{farmer.name}</strong>
+                  {placeLine && <span style={{ fontWeight: 600 }}>{placeLine}</span>}
+                  <span>
+                    {farmer.farmer_id} · {farmer.mobile}
+                  </span>
+                </div>
+                <span className="select-pill">This is me</span>
+              </button>
+            );
+          })}
         </div>
       ) : hasSearched && !busy && !error ? (
         <p className="no-results-text">{t("shell.noSearchResults")}</p>

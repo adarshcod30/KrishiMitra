@@ -2,23 +2,40 @@
 
 import type { ReactNode } from "react";
 
+import { Icon, ICON_NAMES, type IconName } from "@/components/ui/Icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { AsyncResource } from "@/lib/hooks";
 
-export function LoadingState({ icon = "⏳", message }: { icon?: string; message?: string }) {
+/**
+ * Older callers pass arbitrary strings (even emoji) through the `icon` prop.
+ * Only known icon names from components/ui/Icons.tsx are honoured; anything
+ * else falls back to the state's default icon so no emoji ever renders.
+ */
+function resolveIcon(icon: string | undefined, fallback: IconName): IconName {
+  if (icon && (ICON_NAMES as string[]).includes(icon)) {
+    return icon as IconName;
+  }
+  return fallback;
+}
+
+export function LoadingState({ icon, message }: { icon?: string; message?: string }) {
   const { t } = useLanguage();
   return (
     <div className="state-panel state-panel-loading" role="status" aria-live="polite">
-      <div className="state-icon">{icon}</div>
+      <div className="state-icon">
+        <Icon name={resolveIcon(icon, "info")} size={34} />
+      </div>
       <p className="state-message">{message ?? t("common.loading")}</p>
     </div>
   );
 }
 
-export function EmptyState({ icon = "📄", message }: { icon?: string; message: string }) {
+export function EmptyState({ icon, message }: { icon?: string; message: string }) {
   return (
     <div className="state-panel state-panel-empty">
-      <div className="state-icon">{icon}</div>
+      <div className="state-icon">
+        <Icon name={resolveIcon(icon, "info")} size={34} />
+      </div>
       <p className="state-message">{message}</p>
     </div>
   );
@@ -39,11 +56,13 @@ export function ErrorState({
   const { t } = useLanguage();
   return (
     <div className="state-panel state-panel-error" role="alert">
-      <div className="state-icon">⚠️</div>
+      <div className="state-icon">
+        <Icon name="alert" size={34} />
+      </div>
       <p className="state-title">{t("feedback.loadFailed")}</p>
       <p className="state-message">{message}</p>
       {onRetry ? (
-        <button type="button" className="ghost-btn" onClick={onRetry}>
+        <button type="button" className="btn-secondary" onClick={onRetry}>
           {t("feedback.retry")}
         </button>
       ) : null}
@@ -62,12 +81,12 @@ export function ErrorNotice({
   return (
     <div className="inline-error" role="alert">
       <span className="inline-error-icon" aria-hidden="true">
-        ⚠️
+        <Icon name="alert" size={20} />
       </span>
       <span className="inline-error-text">{message}</span>
       {onDismiss ? (
         <button type="button" className="inline-error-dismiss" onClick={onDismiss} aria-label="Dismiss">
-          ✕
+          &times;
         </button>
       ) : null}
     </div>

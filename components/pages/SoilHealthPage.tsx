@@ -3,13 +3,30 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
-import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { analyzeSoil } from "@/lib/api";
+import { FEATURE_INPUTS } from "@/lib/constants";
 import { toUserMessage } from "@/lib/errors";
+import type { TranslationKey } from "@/lib/i18n";
 import type { SoilAnalysisResponse } from "@/lib/types";
+
+/**
+ * Numeric ranges come from the shared feature definitions so the help line
+ * under each soil-test field always matches what the API accepts.
+ */
+const RANGES = new Map(FEATURE_INPUTS.map((field) => [field.key as string, field]));
+
+type NumericKey = "N" | "P" | "K" | "ph";
+
+const NUMERIC_FIELDS: ReadonlyArray<{ key: NumericKey; labelKey: TranslationKey }> = [
+  { key: "N", labelKey: "common.nitrogen" },
+  { key: "P", labelKey: "common.phosphorus" },
+  { key: "K", labelKey: "common.potassium" },
+  { key: "ph", labelKey: "common.soilPh" }
+];
 
 export function SoilHealthPage() {
   const { t, language } = useLanguage();
@@ -38,134 +55,149 @@ export function SoilHealthPage() {
       });
       setResult(response);
     } catch (caught) {
-      // Without this the rejection is unhandled and the spinner just stops.
+      // Without this the rejection is unhandled and the busy state just stops.
       setError(toUserMessage(caught, t("feedback.error")));
     } finally {
       setBusy(false);
     }
   }
 
+  function renderNumberField(key: NumericKey, labelKey: TranslationKey) {
+    const range = RANGES.get(key);
+    const id = `soil-${key}`;
+    return (
+      <div key={key} className="field">
+        <label className="field-label" htmlFor={id}>
+          {t(labelKey)}
+        </label>
+        <input
+          id={id}
+          className="field-input"
+          type="number"
+          inputMode="decimal"
+          min={range?.min}
+          max={range?.max}
+          step={range?.step}
+          value={input[key]}
+          onChange={(event) =>
+            setInput((prev) => ({ ...prev, [key]: Number(event.target.value) }))
+          }
+        />
+        {range ? (
+          <p className="field-help">
+            {range.min} &ndash; {range.max} {range.unit}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.soil")}
-        title={t("soil.title")}
-        description={t("soil.subtitle")}
-      />
+      <div className="page-header">
+        <h1 className="page-title">{t("nav.soil")}</h1>
+        <p className="page-subtitle">{t("soil.subtitle")}</p>
+      </div>
       <ActiveFarmerBanner />
 
-      <section className="dashboard-grid mt-4">
+      <section className="grid-2-cols mt-4">
         <article className="surface-card">
-          <h3>{t("soil.inputTitle")}</h3>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t("common.nitrogen")}</span>
+          <h3 className="section-title">{t("soil.inputTitle")}</h3>
+
+          <div className="grid-2-cols">
+            {NUMERIC_FIELDS.map((field) => renderNumberField(field.key, field.labelKey))}
+          </div>
+
+          <div className="grid-2-cols">
+            <div className="field">
+              <label className="field-label" htmlFor="soil-type">
+                {t("farmer.soilType")}
+              </label>
               <input
-                type="number"
-                value={input.N}
-                onChange={(event) => setInput((prev) => ({ ...prev, N: Number(event.target.value) }))}
-              />
-            </label>
-            <label className="field">
-              <span>{t("common.phosphorus")}</span>
-              <input
-                type="number"
-                value={input.P}
-                onChange={(event) => setInput((prev) => ({ ...prev, P: Number(event.target.value) }))}
-              />
-            </label>
-            <label className="field">
-              <span>{t("common.potassium")}</span>
-              <input
-                type="number"
-                value={input.K}
-                onChange={(event) => setInput((prev) => ({ ...prev, K: Number(event.target.value) }))}
-              />
-            </label>
-            <label className="field">
-              <span>{t("common.soilPh")}</span>
-              <input
-                type="number"
-                step="0.1"
-                value={input.ph}
-                onChange={(event) =>
-                  setInput((prev) => ({ ...prev, ph: Number(event.target.value) }))
-                }
-              />
-            </label>
-            <label className="field">
-              <span>{t("farmer.soilType")}</span>
-              <input
+                id="soil-type"
+                className="field-input"
                 value={input.soil_type}
                 onChange={(event) =>
                   setInput((prev) => ({ ...prev, soil_type: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>{t("farmer.crop")}</span>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="soil-crop">
+                {t("farmer.crop")}
+              </label>
               <input
+                id="soil-crop"
+                className="field-input"
                 value={input.crop}
                 onChange={(event) => setInput((prev) => ({ ...prev, crop: event.target.value }))}
               />
-            </label>
+            </div>
           </div>
+
           {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
-          <button type="button" className="primary-btn" onClick={handleAnalyze} disabled={busy}>
+
+          <button type="button" className="btn-primary" onClick={handleAnalyze} disabled={busy}>
             {busy ? t("common.loading") : t("common.predict")}
           </button>
         </article>
 
         <article className="surface-card">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="mb-0">{t("soil.outputTitle")}</h3>
-            {result && (
-              <div className="status-badge info">
-                🧪 {t("nav.soil")}
-              </div>
-            )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.75rem",
+              marginBottom: "1rem"
+            }}
+          >
+            <h3 className="section-title mb-0">{t("soil.outputTitle")}</h3>
+            {result && <span className="badge badge-success">{t("nav.soil")}</span>}
           </div>
 
           {busy && !result ? (
-            <LoadingState icon="🧪" />
+            <LoadingState icon="soil" />
           ) : result ? (
-            <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
-              <div className="recommendation-header">
-                <div className="crop-icon-wrapper">🧪</div>
-                <div className="recommendation-title-group">
-                  <h4 className="crop-name">{result.soil_health_status}</h4>
-                  <div className="text-sm text-ink-secondary mt-1">
-                    {t("soil.subtitle")}
+            <div>
+              {/* The answer the farmer came for: soil status, big. */}
+              <div className="result-card result-card-success">
+                <span className="badge badge-success">{t("common.status")}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.75rem" }}>
+                  <div className="crop-icon-wrapper">
+                    <Icon name="soil" size={30} />
                   </div>
-                </div>
-              </div>
-
-              <div className="grid-2-cols mt-6">
-                <div className="tips-section">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-xl">⚠️</span>
-                    <span className="tips-title mb-0">{t("common.nutrientAlerts")}</span>
-                  </div>
-                  <div className="premium-list">
-                    {result.nutrient_alerts.map((alert) => (
-                      <div key={alert} className="premium-list-item">
-                        <span className="icon">◈</span>
-                        <span className="text">{alert}</span>
-                      </div>
-                    ))}
+                  <div style={{ fontSize: "2.1rem", fontWeight: 700, lineHeight: 1.2, color: "var(--ink)" }}>
+                    {result.soil_health_status}
                   </div>
                 </div>
 
-                <div className="tips-section">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-xl">🛠️</span>
-                    <span className="tips-title mb-0">{t("common.actions")}</span>
+                {result.nutrient_alerts.length > 0 && (
+                  <div className="tips-section" style={{ marginTop: "1rem" }}>
+                    <div className="tips-title">{t("common.nutrientAlerts")}</div>
+                    <div className="premium-list">
+                      {result.nutrient_alerts.map((alert) => (
+                        <div key={alert} className="premium-list-item">
+                          <span className="icon" aria-hidden="true">
+                            <Icon name="alert" size={18} />
+                          </span>
+                          <span className="text">{alert}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="premium-list">
+                )}
+
+                {/* The concrete next steps. */}
+                <div style={{ marginTop: "1rem" }}>
+                  <div className="tips-title">{t("common.actions")}</div>
+                  <div className="actions-list">
                     {result.soil_actions.map((action) => (
-                      <div key={action} className="premium-list-item">
-                        <span className="icon">✓</span>
-                        <span className="text">{action}</span>
+                      <div key={action} className="action-item">
+                        <span className="action-check" aria-hidden="true">
+                          <Icon name="check" size={18} />
+                        </span>
+                        <span>{action}</span>
                       </div>
                     ))}
                   </div>
@@ -173,24 +205,20 @@ export function SoilHealthPage() {
               </div>
 
               {result.recommended_crop_focus && result.recommended_crop_focus.length > 0 && (
-                <div className="actions-panel mt-6 pt-6 border-t border-dashed border-gray-200">
-                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">🌱</span>
-                    <span className="tips-title mb-0">Recommended Focus</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {result.recommended_crop_focus.map(crop => (
-                      <span key={crop} className="badge badge-brand">{crop}</span>
+                <div style={{ marginTop: "1rem" }}>
+                  <div className="tips-title">{t("nav.crop")}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.4rem" }}>
+                    {result.recommended_crop_focus.map((crop) => (
+                      <span key={crop} className="badge badge-success">
+                        {crop}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="empty-state-illust">
-              <div className="illust-icon">🧪</div>
-              <p className="muted-copy">{t("soil.empty")}</p>
-            </div>
+            <EmptyState icon="soil" message={t("soil.empty")} />
           )}
         </article>
       </section>

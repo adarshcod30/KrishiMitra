@@ -3,13 +3,19 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
-import { ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorNotice, LoadingState } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { diagnoseDisease, uploadAsset } from "@/lib/api";
 import { toUserMessage } from "@/lib/errors";
 import type { DiseaseResponse, UploadAsset } from "@/lib/types";
+
+const iconTitleStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+} as const;
 
 export function PestDetectionPage() {
   const { t, language } = useLanguage();
@@ -72,104 +78,164 @@ export function PestDetectionPage() {
     }
   }
 
+  const severityCardClass =
+    result?.severity === "high"
+      ? "result-card-danger"
+      : result?.severity === "moderate"
+        ? "result-card-warning"
+        : "result-card-success";
+  const severityBadgeClass =
+    result?.severity === "high"
+      ? "badge-danger"
+      : result?.severity === "moderate"
+        ? "badge-warning"
+        : "badge-success";
+  const severityLabel =
+    result?.severity === "high"
+      ? "Serious - act now"
+      : result?.severity === "moderate"
+        ? "Needs attention"
+        : "Mild";
+
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.pest")}
-        title={t("pest.title")}
-        description={t("pest.subtitle")}
-      />
+      <header className="page-header">
+        <h2 className="page-title">{t("nav.pest")}</h2>
+        <p className="page-subtitle">{t("pest.subtitle")}</p>
+      </header>
       <ActiveFarmerBanner />
 
-      <section className="dashboard-grid mt-4">
+      <section className="grid-2-cols mt-4">
         <article className="surface-card">
-          <h3>{t("pest.inputTitle")}</h3>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t("farmer.crop")}</span>
-              <input value={crop} onChange={(event) => setCrop(event.target.value)} />
-            </label>
-            <label className="field field-full">
-              <span>{t("common.symptoms")}</span>
+          <h3 className="section-title" style={iconTitleStyle}>
+            <Icon name="pest" size={22} />
+            {t("pest.inputTitle")}
+          </h3>
+          <div className="form-stack">
+            <div>
+              <label className="field-label" htmlFor="pest-crop">
+                {t("farmer.crop")}
+              </label>
+              <input
+                id="pest-crop"
+                className="field-input"
+                value={crop}
+                onChange={(event) => setCrop(event.target.value)}
+              />
+              <p className="field-help">Which crop has the problem, e.g. rice.</p>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="pest-symptoms">
+                {t("common.symptoms")}
+              </label>
               <textarea
-                rows={6}
+                id="pest-symptoms"
+                className="field-input"
+                rows={5}
                 value={symptoms}
                 onChange={(event) => setSymptoms(event.target.value)}
               />
-            </label>
-            <label className="field field-full">
-              <span>{t("common.evidence")}</span>
+              <p className="field-help">Describe what you see - yellow leaves, spots, insects...</p>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="pest-photo">
+                {t("common.evidence")}
+              </label>
               <input
+                id="pest-photo"
+                className="field-input"
                 type="file"
                 accept="image/*,.pdf"
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               />
-            </label>
+              <p className="field-help">A clear photo of the sick leaf or plant helps.</p>
+            </div>
           </div>
           {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
-          <div className="action-row">
-            <button type="button" className="ghost-btn" onClick={handleUpload} disabled={uploading}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+              marginTop: "1rem",
+            }}
+          >
+            <button type="button" className="btn-secondary" onClick={handleUpload} disabled={uploading}>
+              <Icon name="upload" size={20} />
               {uploading ? t("common.loading") : t("common.upload")}
             </button>
-            <button type="button" className="primary-btn" onClick={handleAnalyze} disabled={busy}>
+            <button type="button" className="btn-primary" onClick={handleAnalyze} disabled={busy}>
               {busy ? t("common.loading") : t("common.predict")}
             </button>
           </div>
-          {asset ? <p className="muted-copy">{asset.filename}</p> : null}
+          {asset ? (
+            <p
+              className="field-help"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                marginTop: "0.75rem",
+                color: "var(--brand-dark)",
+                fontWeight: 600,
+              }}
+            >
+              <Icon name="check" size={18} />
+              {asset.filename}
+            </p>
+          ) : null}
         </article>
 
         <article className="surface-card">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="mb-0">{t("pest.outputTitle")}</h3>
-            {result && (
-              <div className={`status-badge ${result.severity === 'high' ? 'danger' : result.severity === 'moderate' ? 'warning' : 'success'}`}>
-                🐛 {result.severity.toUpperCase()}
-              </div>
-            )}
-          </div>
+          <h3 className="section-title" style={iconTitleStyle}>
+            <Icon name="leaf" size={22} />
+            {t("pest.outputTitle")}
+          </h3>
 
           {busy && !result ? (
-            <LoadingState icon="🐛" />
+            <LoadingState icon="pest" />
           ) : result ? (
-            <div className="recommendation-card top-choice animate-in slide-in-from-bottom-4 duration-500">
-              <div className="recommendation-header">
-                <div className="crop-icon-wrapper">🐛</div>
-                <div className="recommendation-title-group">
-                  <h4 className="crop-name">{result.disease}</h4>
-                  <div className="confidence-badge high mt-1">
-                    {Math.round(result.confidence * 100)}% {t("models.accuracy")}
-                  </div>
-                </div>
+            <div className={`result-card ${severityCardClass}`}>
+              <span className="stat-label">Likely problem</span>
+              <p className="stat-value" style={{ color: "var(--ink)", marginBottom: "0.5rem" }}>
+                {result.disease}
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                <span className={`badge ${severityBadgeClass}`}>{severityLabel}</span>
+                <span className="badge">
+                  {t("models.accuracy")}: {Math.round(result.confidence * 100)}%
+                </span>
               </div>
 
-              <div className="tips-section mt-6">
-                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">🩺</span>
-                  <span className="tips-title mb-0">Diagnosis & Advice</span>
-                </div>
-                <p className="tips-content">{result.advice}</p>
-              </div>
+              <h4 className="section-title" style={{ marginBottom: "0.4rem" }}>
+                What to do now
+              </h4>
+              <p style={{ fontSize: "1rem", color: "var(--ink)", lineHeight: 1.55 }}>
+                {result.advice}
+              </p>
 
-              <div className="mt-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl">🛡️</span>
-                  <span className="tips-title mb-0">Preventive Actions</span>
-                </div>
-                <div className="premium-list">
-                  {result.preventive_actions.map((action, idx) => (
-                    <div key={idx} className="premium-list-item">
-                      <span className="icon">✓</span>
-                      <span className="text">{action}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <hr className="divider" />
+
+              <h4 className="section-title" style={{ marginBottom: "0.5rem" }}>
+                Treatment and prevention steps
+              </h4>
+              <ol
+                style={{
+                  paddingLeft: "1.4rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.6rem",
+                }}
+              >
+                {result.preventive_actions.map((action, idx) => (
+                  <li key={idx} style={{ fontSize: "1rem", color: "var(--ink)", lineHeight: 1.55 }}>
+                    {action}
+                  </li>
+                ))}
+              </ol>
             </div>
           ) : (
-            <div className="empty-state-illust">
-              <div className="illust-icon">🐛</div>
-              <p className="muted-copy">{t("pest.empty")}</p>
-            </div>
+            <EmptyState icon="pest" message={t("pest.empty")} />
           )}
         </article>
       </section>

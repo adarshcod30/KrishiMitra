@@ -3,12 +3,25 @@
 import { useCallback, useRef, useState } from "react";
 
 import { AsyncSection } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Icon, type IconName } from "@/components/ui/Icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchKnowledgeLibrary } from "@/lib/api";
 import { useAsyncResource } from "@/lib/hooks";
 
 const CATEGORIES = ["all", "production", "treatment", "horticulture", "soil", "market"] as const;
+
+const CATEGORY_ICONS: Record<string, IconName> = {
+  all: "book",
+  production: "plant",
+  treatment: "pest",
+  horticulture: "leaf",
+  soil: "soil",
+  market: "market"
+};
+
+function categoryIcon(cat: string): IconName {
+  return CATEGORY_ICONS[cat] ?? "book";
+}
 
 export function KnowledgePage() {
   const { t, language } = useLanguage();
@@ -34,24 +47,21 @@ export function KnowledgePage() {
     (article) => category === "all" || article.category === category
   );
 
-  const categoryIcon = (cat: string) => {
-    const icons: Record<string, string> = {
-      production: "🌾", treatment: "💊", horticulture: "🌺", soil: "🧪", market: "📈", all: "📚",
-    };
-    return icons[cat] || "📄";
-  };
-
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.knowledge")}
-        title={t("knowledge.title")}
-        description={t("knowledge.subtitle")}
-      />
+      <div className="page-header">
+        <h1 className="page-title">{t("nav.knowledge")}</h1>
+        <p className="page-subtitle">{t("knowledge.subtitle")}</p>
+      </div>
 
-      <section className="surface-card">
-        <div className="inline-actions" style={{ marginBottom: "0.8rem" }}>
+      <section className="surface-card" style={{ marginBottom: "1.25rem" }}>
+        <label className="field-label" htmlFor="knowledge-search">
+          {t("common.search")}
+        </label>
+        <div className="search-input-group">
           <input
+            id="knowledge-search"
+            className="field-input"
             placeholder={t("knowledge.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -63,80 +73,92 @@ export function KnowledgePage() {
           />
           <button
             type="button"
-            className="primary-btn small-btn"
+            className="btn-primary"
             onClick={submitQuery}
             disabled={articlesResource.isLoading}
           >
+            <Icon name="search" size={20} />
             {articlesResource.isLoading ? t("common.loading") : t("common.search")}
           </button>
         </div>
 
-        <div className="category-tabs">
+        <div className="portal-tabs" style={{ marginTop: "1rem", marginBottom: 0 }}>
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
-              className={`category-tab ${category === cat ? "active" : ""}`}
+              className={`portal-tab-btn ${category === cat ? "active" : ""}`}
               onClick={() => setCategory(cat)}
             >
-              {categoryIcon(cat)} {t(`knowledge.cat_${cat}`)}
+              {t(`knowledge.cat_${cat}`)}
             </button>
           ))}
         </div>
       </section>
 
       <section className="surface-card">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="mb-0">{categoryIcon(category)} {t("knowledge.articles")}</h3>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            marginBottom: "1rem"
+          }}
+        >
+          <h3 className="section-title" style={{ marginBottom: 0 }}>
+            {t("knowledge.articles")}
+          </h3>
           {filtered.length > 0 && (
-            <div className="status-badge info">
-               📚 {filtered.length} {t("knowledge.articles")}
-            </div>
+            <span className="badge badge-info">
+              {filtered.length} {t("knowledge.articles")}
+            </span>
           )}
         </div>
 
         <AsyncSection
           resource={articlesResource}
-          icon="📚"
+          icon="book"
           emptyMessage={t("knowledge.empty")}
           isEmpty={() => filtered.length === 0}
         >
           {() => (
-          <div className="result-layout animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {filtered.map((article) => (
-              <div key={article.id} className="recommendation-card">
-                <div className="recommendation-header">
-                  <div className="crop-icon-wrapper" style={{ width: '48px', height: '48px', fontSize: '1.5rem', background: 'var(--brand-subtle)' }}>
-                    {categoryIcon(article.category || 'production')}
+            <div className="recommendation-grid">
+              {filtered.map((article) => (
+                <article key={article.id} className="recommendation-card">
+                  <div className="recommendation-header">
+                    <div className="crop-icon-wrapper">
+                      <Icon name={categoryIcon(article.category || "production")} size={26} />
+                    </div>
+                    <div className="recommendation-title-group">
+                      <h4 className="crop-name" style={{ fontSize: "1.1rem", lineHeight: 1.4 }}>
+                        {article.title}
+                      </h4>
+                      <span
+                        className="badge badge-success"
+                        style={{ marginTop: "0.35rem", textTransform: "capitalize" }}
+                      >
+                        {t(`knowledge.cat_${article.category || "production"}`)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="recommendation-title-group">
-                    <h4 className="crop-name" style={{ fontSize: '1.1rem', lineHeight: '1.4' }}>{article.title}</h4>
-                    <span className="badge badge-brand mt-1" style={{ fontSize: '0.7rem', textTransform: 'capitalize' }}>
-                      {article.category || 'general'}
-                    </span>
-                  </div>
-                </div>
 
-                <p className="tips-content mt-3" style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)' }}>
-                  {article.summary}
-                </p>
+                  <p className="tips-content">{article.summary}</p>
 
-                {article.url && (
-                  <div className="mt-4 pt-4 border-t border-dashed border-line">
-                    <a 
-                      href={article.url} 
-                      target="_blank" 
+                  {article.url && (
+                    <a
+                      href={article.url}
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="badge badge-brand flex items-center justify-center py-2 text-sm no-underline hover-lift"
-                      style={{ background: 'transparent', border: '1px solid var(--brand)', color: 'var(--brand)' }}
+                      className="btn-secondary"
                     >
-                      {t("news.readMore")} →
+                      {t("news.readMore")}
+                      <Icon name="arrow-right" size={18} />
                     </a>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  )}
+                </article>
+              ))}
+            </div>
           )}
         </AsyncSection>
       </section>

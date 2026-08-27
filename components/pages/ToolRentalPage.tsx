@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { AsyncSection } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Icon } from "@/components/ui/Icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchRentalTools } from "@/lib/api";
 import { useAsyncResource } from "@/lib/hooks";
@@ -29,16 +29,19 @@ export function ToolRentalPage() {
 
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.rental")}
-        title={t("rental.title")}
-        description={t("rental.subtitle")}
-      />
+      <div className="page-header">
+        <h1 className="page-title">{t("nav.rental")}</h1>
+        <p className="page-subtitle">{t("rental.subtitle")}</p>
+      </div>
 
-      <section className="surface-card">
-        <h3>🔍 {t("rental.searchTitle")}</h3>
-        <div className="inline-actions">
+      <section className="surface-card" style={{ marginBottom: "1.25rem" }}>
+        <label className="field-label" htmlFor="rental-location">
+          {t("rental.searchTitle")}
+        </label>
+        <div className="search-input-group">
           <input
+            id="rental-location"
+            className="field-input"
             placeholder={t("rental.locationPlaceholder")}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
@@ -50,36 +53,64 @@ export function ToolRentalPage() {
           />
           <button
             type="button"
-            className="primary-btn small-btn"
+            className="btn-primary"
             onClick={submitLocation}
             disabled={toolsResource.isLoading}
           >
+            <Icon name="search" size={20} />
             {toolsResource.isLoading ? t("common.loading") : t("common.search")}
           </button>
         </div>
       </section>
 
       <section className="surface-card">
-        <h3>🚜 {t("rental.availableTools")}</h3>
+        <h3 className="section-title">{t("rental.availableTools")}</h3>
         <AsyncSection
           resource={toolsResource}
-          icon="🚜"
+          icon="tools"
           emptyMessage={t("rental.empty")}
           isEmpty={(items) => items.length === 0}
         >
           {(tools) => (
-            <div className="feature-grid">
+            <div className="recommendation-grid">
               {tools.map((tool, i) => (
-                <div key={`${tool.name}-${i}`} className="tool-card">
-                  <h4>{tool.name}</h4>
-                  <div className="tool-rate">₹{tool.hourly_rate_inr}/hr</div>
-                  <div className="tool-meta">
-                    📍 {tool.location} · {tool.provider}
+                <article key={`${tool.name}-${i}`} className="recommendation-card">
+                  <div className="recommendation-header">
+                    <div className="crop-icon-wrapper">
+                      <Icon name="tools" size={28} />
+                    </div>
+                    <div className="recommendation-title-group">
+                      <h4 className="crop-name" style={{ fontSize: "1.15rem", lineHeight: 1.35 }}>
+                        {tool.name}
+                      </h4>
+                    </div>
                   </div>
-                  <div className="tool-meta">
-                    {t("rental.availability")}: <span className="badge badge-success">{tool.availability}</span>
+
+                  <div className="stat-item">
+                    <span className="stat-label">Rent per hour</span>
+                    <span className="stat-value">₹{tool.hourly_rate_inr}</span>
                   </div>
-                </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      color: "var(--ink-secondary)",
+                      fontSize: "0.98rem"
+                    }}
+                  >
+                    <Icon name="location" size={18} />
+                    <span>
+                      {tool.location} · {tool.provider}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span className="stat-label">{t("rental.availability")}</span>
+                    <span className="badge badge-success">{tool.availability}</span>
+                  </div>
+                </article>
               ))}
             </div>
           )}

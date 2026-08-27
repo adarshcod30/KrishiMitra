@@ -1,101 +1,77 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
 
-import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
 import { FarmerSearchPanel } from "@/components/farmers/FarmerSearchPanel";
-import { ErrorState } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { fetchDashboardSummary } from "@/lib/api";
-import { useAsyncResource } from "@/lib/hooks";
 
-const FEATURE_CARDS = [
-  { href: "/dashboard/crop-intelligence", titleKey: "nav.crop", descKey: "dashboard.cropDesc", icon: "🌾", bg: "rgba(16, 185, 129, 0.05)" },
-  { href: "/dashboard/soil-health", titleKey: "nav.soil", descKey: "dashboard.soilDesc", icon: "🧪", bg: "rgba(234, 88, 12, 0.05)" },
-  { href: "/dashboard/irrigation-planner", titleKey: "nav.irrigation", descKey: "dashboard.irrigationDesc", icon: "💧", bg: "rgba(2, 132, 199, 0.05)" },
-  { href: "/dashboard/fertilizer", titleKey: "nav.fertilizer", descKey: "dashboard.fertilizerDesc", icon: "🧬", bg: "rgba(217, 119, 6, 0.05)" },
-  { href: "/dashboard/pest-detection", titleKey: "nav.pest", descKey: "dashboard.pestDesc", icon: "🐛", bg: "rgba(225, 29, 72, 0.05)" },
-  { href: "/dashboard/weather", titleKey: "nav.weather", descKey: "dashboard.weatherDesc", icon: "🌤️", bg: "rgba(2, 132, 199, 0.05)" },
-  { href: "/dashboard/market-prices", titleKey: "nav.market", descKey: "dashboard.marketDesc", icon: "📈", bg: "rgba(16, 185, 129, 0.05)" },
-  { href: "/dashboard/schemes", titleKey: "nav.schemes", descKey: "dashboard.schemesDesc", icon: "🏛️", bg: "rgba(6, 95, 70, 0.05)" },
-  { href: "/dashboard/tool-rental", titleKey: "nav.rental", descKey: "dashboard.rentalDesc", icon: "🚜", bg: "rgba(217, 119, 6, 0.05)" },
+/**
+ * Task-first home: each card is one thing a farmer wants to do today,
+ * in priority order. The whole card is the tap target.
+ */
+const PRIMARY_TASKS = [
+  { href: "/dashboard/crop-intelligence", titleKey: "nav.crop", descKey: "welcome.benefit1", icon: "plant" },
+  { href: "/dashboard/soil-health", titleKey: "nav.soil", descKey: "dashboard.soilDesc", icon: "soil" },
+  { href: "/dashboard/irrigation-planner", titleKey: "nav.irrigation", descKey: "dashboard.irrigationDesc", icon: "water" },
+  { href: "/dashboard/fertilizer", titleKey: "nav.fertilizer", descKey: "dashboard.fertilizerDesc", icon: "fertilizer" },
+  { href: "/dashboard/pest-detection", titleKey: "nav.pest", descKey: "dashboard.pestDesc", icon: "pest" },
+  { href: "/dashboard/weather", titleKey: "nav.weather", descKey: "dashboard.weatherDesc", icon: "weather" },
+  { href: "/dashboard/market-prices", titleKey: "nav.market", descKey: "dashboard.marketDesc", icon: "market" },
+  { href: "/dashboard/schemes", titleKey: "nav.schemes", descKey: "dashboard.schemesDesc", icon: "scheme" },
+] as const;
+
+const SECONDARY_TASKS = [
+  { href: "/dashboard/tool-rental", titleKey: "nav.rental", descKey: "dashboard.rentalDesc", icon: "tools" },
+  { href: "/dashboard/knowledge", titleKey: "nav.knowledge", descKey: "dashboard.knowledgeDesc", icon: "book" },
+  { href: "/dashboard/news", titleKey: "nav.news", descKey: "dashboard.newsDesc", icon: "news" },
+  { href: "/dashboard/farmer-history", titleKey: "nav.history", descKey: "dashboard.historyDesc", icon: "history" },
 ] as const;
 
 export function DashboardHomePage() {
   const { t } = useLanguage();
-  const loadSummary = useCallback(() => fetchDashboardSummary(), []);
-  const summaryResource = useAsyncResource(loadSummary, t("feedback.loadFailed"));
-  const summary = summaryResource.data;
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <div className="badge badge-brand">{t("nav.dashboard")}</div>
-        <h1 className="page-title">{t("dashboard.title")}</h1>
-        <p className="page-subtitle">{t("dashboard.subtitle")}</p>
-      </div>
-      <ActiveFarmerBanner />
-
-      <div className="surface-card summary-card">
-        <h3 className="section-title">📊 {t("dashboard.quickInsights")}</h3>
-        {summaryResource.status === "error" ? (
-          // Showing zeroes for a failed request would be a lie, so the numbers
-          // are replaced by the reason plus a way to retry.
-          <ErrorState
-            message={summaryResource.error ?? t("feedback.loadFailed")}
-            onRetry={summaryResource.reload}
-          />
-        ) : (
-          <div className="stats-row">
-            <div className="stat-item">
-              <span className="stat-label">{t("dashboard.totalFarmers")}</span>
-              <strong className="stat-value">
-                {summaryResource.isLoading ? "…" : summary?.active_users ?? 0}
-              </strong>
-            </div>
-            <div className="divider" />
-            <div className="stat-item">
-              <span className="stat-label">{t("dashboard.totalFarms")}</span>
-              <strong className="stat-value">
-                {summaryResource.isLoading ? "…" : summary?.total_farms ?? 0}
-              </strong>
-            </div>
-            <div className="divider" />
-            <div className="stat-item">
-              <span className="stat-label">{t("dashboard.savedRecords")}</span>
-              <strong className="stat-value">
-                {summaryResource.isLoading ? "…" : summary?.advisory_runs ?? 0}
-              </strong>
-            </div>
-          </div>
-        )}
+        <h1 className="page-title">{t("app.tagline")}</h1>
+        <p className="page-subtitle">{t("welcome.ctaBody")}</p>
       </div>
 
-      <div className="dashboard-grid mt-4">
-        <div className="surface-card features-container">
-          <h3 className="section-title">🚀 {t("dashboard.featureCards")}</h3>
-          <div className="features-grid-airy">
-            {FEATURE_CARDS.map((card) => (
-              <Link 
-                key={card.href} 
-                href={card.href as never} 
-                className="surface-card-interactive feature-card-airy"
-                style={{ backgroundColor: card.bg }}
-              >
-                <div className="feature-icon-wrapper">{card.icon}</div>
-                <div className="feature-content">
-                  <h4>{t(card.titleKey)}</h4>
-                  <p>{t(card.descKey)}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {/* Active-farmer strip: shows the selected farmer, or asks the farmer
+          to pick their name so results get saved to their record. */}
+      <div className="surface-card mb-4">
+        <FarmerSearchPanel compact />
+      </div>
 
-        <div className="surface-card">
-          <FarmerSearchPanel />
-        </div>
+      <div className="action-grid">
+        {PRIMARY_TASKS.map((task) => (
+          <Link key={task.href} href={task.href as never} className="action-card">
+            <span className="action-card-icon">
+              <Icon name={task.icon} size={26} />
+            </span>
+            <span>
+              <span className="action-card-label">{t(task.titleKey)}</span>
+              <span className="action-card-outcome">{t(task.descKey)}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <hr className="divider mt-4" />
+
+      <div className="action-grid">
+        {SECONDARY_TASKS.map((task) => (
+          <Link key={task.href} href={task.href as never} className="action-card">
+            <span className="action-card-icon">
+              <Icon name={task.icon} size={26} />
+            </span>
+            <span>
+              <span className="action-card-label">{t(task.titleKey)}</span>
+              <span className="action-card-outcome">{t(task.descKey)}</span>
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   );

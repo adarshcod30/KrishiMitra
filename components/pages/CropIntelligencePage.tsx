@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 import { ActiveFarmerBanner } from "@/components/farmers/ActiveFarmerBanner";
-import { ErrorNotice } from "@/components/ui/AsyncState";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorNotice } from "@/components/ui/AsyncState";
+import { Icon } from "@/components/ui/Icons";
 import { useFarmerSession } from "@/contexts/FarmerSessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { predictCrop } from "@/lib/api";
@@ -12,31 +12,11 @@ import { DEFAULT_SOIL_PAYLOAD, FEATURE_INPUTS } from "@/lib/constants";
 import { toUserMessage } from "@/lib/errors";
 import type { PredictionResponse, SoilPayload } from "@/lib/types";
 
-const CROP_ICONS: Record<string, string> = {
-  wheat: "🌾",
-  rice: "🍚",
-  maize: "🌽",
-  chickpea: "🥘",
-  kidneybeans: "🫘",
-  pigeonpeas: "🍲",
-  mothbeans: "🍛",
-  mungbean: "🥣",
-  blackgram: "🥣",
-  lentil: "🥣",
-  pomegranate: "🍎",
-  banana: "🍌",
-  mango: "🥭",
-  grapes: "🍇",
-  watermelon: "🍉",
-  muskmelon: "🍈",
-  apple: "🍎",
-  orange: "🍊",
-  papaya: "🥭",
-  coconut: "🥥",
-  cotton: "☁️",
-  jute: "🧵",
-  coffee: "☕"
-};
+// The form is grouped the way a farmer meets these numbers: the first four
+// come from a soil test report, the rest describe the local weather.
+const SOIL_KEYS: readonly string[] = ["N", "P", "K", "ph"];
+const SOIL_FIELDS = FEATURE_INPUTS.filter((field) => SOIL_KEYS.includes(field.key));
+const WEATHER_FIELDS = FEATURE_INPUTS.filter((field) => !SOIL_KEYS.includes(field.key));
 
 export function CropIntelligencePage() {
   const { t, language } = useLanguage();
@@ -65,46 +45,69 @@ export function CropIntelligencePage() {
     }
   }
 
+  function renderField(field: (typeof FEATURE_INPUTS)[number]) {
+    const id = `crop-${field.key}`;
+    return (
+      <div key={field.key} className="field">
+        <label className="field-label" htmlFor={id}>
+          {t(field.labelKey)}
+        </label>
+        <input
+          id={id}
+          className="field-input"
+          type="number"
+          inputMode="decimal"
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          value={input[field.key]}
+          onChange={(event) =>
+            setInput((prev) => ({
+              ...prev,
+              [field.key]: Number(event.target.value)
+            }))
+          }
+        />
+        <p className="field-help">
+          {field.min} &ndash; {field.max} {field.unit}
+        </p>
+      </div>
+    );
+  }
+
+  const topPick = result?.recommendations[0];
+  const alternates = result?.recommendations.slice(1) ?? [];
+
   return (
     <div className="page-container">
-      <PageHeader
-        eyebrow={t("nav.crop")}
-        title={t("crop.title")}
-        description={t("crop.subtitle")}
-      />
+      <div className="page-header">
+        <h1 className="page-title">{t("nav.crop")}</h1>
+        <p className="page-subtitle">{t("welcome.benefit1")}</p>
+      </div>
       <ActiveFarmerBanner />
 
-      <section className="dashboard-grid mt-4">
+      <section className="grid-2-cols mt-4">
         <article className="surface-card">
-          <h3>{t("crop.inputTitle")}</h3>
-          <div className="form-grid">
-            {FEATURE_INPUTS.map((field) => (
-              <label key={field.key} className="field">
-                <span>
-                  {t(field.labelKey)} ({field.unit})
-                </span>
-                <input
-                  type="number"
-                  min={field.min}
-                  max={field.max}
-                  step={field.step}
-                  value={input[field.key]}
-                  onChange={(event) =>
-                    setInput((prev) => ({
-                      ...prev,
-                      [field.key]: Number(event.target.value)
-                    }))
-                  }
-                />
-              </label>
-            ))}
+          <h3 className="section-title">{t("crop.inputTitle")}</h3>
+
+          <span className="page-eyebrow">{t("nav.soil")}</span>
+          <div className="grid-2-cols" style={{ marginTop: "0.5rem" }}>
+            {SOIL_FIELDS.map(renderField)}
           </div>
+
+          <span className="page-eyebrow" style={{ marginTop: "0.75rem" }}>
+            {t("nav.weather")}
+          </span>
+          <div className="grid-2-cols" style={{ marginTop: "0.5rem" }}>
+            {WEATHER_FIELDS.map(renderField)}
+          </div>
+
           {error && <ErrorNotice message={error} onDismiss={() => setError(null)} />}
 
-          <div className="flex justify-end gap-3 mt-8">
-            <button 
-              type="button" 
-              className="ghost-btn" 
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.75rem" }}>
+            <button
+              type="button"
+              className="btn-secondary"
               onClick={() => {
                 setInput(DEFAULT_SOIL_PAYLOAD);
                 setResult(null);
@@ -113,87 +116,75 @@ export function CropIntelligencePage() {
             >
               {t("common.reset")}
             </button>
-            <button type="button" className="primary-btn" onClick={handleRun} disabled={busy}>
+            <button type="button" className="btn-primary" onClick={handleRun} disabled={busy}>
               {busy ? t("common.loading") : t("common.predict")}
             </button>
           </div>
         </article>
 
         <article className="surface-card">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="mb-0">{t("crop.outputTitle")}</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", marginBottom: "1rem" }}>
+            <h3 className="section-title mb-0">{t("crop.outputTitle")}</h3>
             {result && (
-              <div className="text-xs font-bold text-muted bg-subtle px-3 py-1 rounded-full uppercase tracking-widest">
+              <span className="badge badge-success">
                 {result.recommendations.length} {t("common.results")}
-              </div>
+              </span>
             )}
           </div>
-          
-          {result ? (
-            <div className="result-layout animate-in fade-in duration-500">
-              <div className="recommendation-grid">
-                {result.recommendations.map((item, idx) => {
-                  const prob = item.probability * 100;
-                  const confidenceClass = prob >= 80 ? 'high' : prob >= 60 ? 'medium' : 'low';
-                  const cropKey = item.crop.toLowerCase();
-                  const icon = CROP_ICONS[cropKey] || "🌱";
 
-                  return (
-                    <div 
-                      key={item.crop} 
-                      className={`recommendation-card ${idx === 0 ? 'top-choice' : ''}`}
-                      style={{ animationDelay: `${idx * 100}ms` }}
-                    >
-                      {idx === 0 && (
-                        <div className="absolute top-0 right-0 p-3">
-                          <span className="badge badge-brand shadow-sm">{t("common.bestMatch")}</span>
-                        </div>
-                      )}
-                      
-                      <div className="recommendation-header">
-                        <div className="crop-icon-wrapper">
-                          {icon}
-                        </div>
-                        <div className="recommendation-title-group">
-                          <h4 className="crop-name">{item.display_crop}</h4>
-                          <div className={`confidence-badge ${confidenceClass}`}>
-                            {Math.round(prob)}% {t("models.accuracy")}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="tips-section mt-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xl">💡</span>
-                          <span className="tips-title mb-0">{t("common.agronomyTip")}</span>
-                        </div>
-                        <p className="tips-content italic">&ldquo;{item.agronomy_tip}&rdquo;</p>
-                      </div>
-
-                      <div className="actions-panel mt-4 pt-4 border-t border-dashed border-gray-200">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-xl">📋</span>
-                          <span className="tips-title mb-0">{t("common.actions")}</span>
-                        </div>
-                        <div className="actions-list">
-                          {result.field_actions.slice(0, 3).map((action) => (
-                            <div key={action} className="action-item">
-                              <span className="action-check">✓</span>
-                              <span>{action}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+          {result && topPick ? (
+            <div>
+              <div className="result-card result-card-success">
+                <span className="badge badge-success">{t("common.bestMatch")}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.75rem" }}>
+                  <div className="crop-icon-wrapper">
+                    <Icon name="plant" size={30} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "2.1rem", fontWeight: 700, lineHeight: 1.2, color: "var(--ink)" }}>
+                      {topPick.display_crop}
                     </div>
-                  );
-                })}
+                    <div className={`confidence-badge ${topPick.confidence}`}>
+                      {t("common.bestMatch")}: {Math.round(topPick.probability * 100)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tips-section" style={{ marginTop: "1rem" }}>
+                  <div className="tips-title">{t("common.agronomyTip")}</div>
+                  <p className="tips-content">{topPick.agronomy_tip}</p>
+                </div>
+
+                <div style={{ marginTop: "1rem" }}>
+                  <div className="tips-title">{t("common.actions")}</div>
+                  <div className="actions-list">
+                    {result.field_actions.slice(0, 3).map((action) => (
+                      <div key={action} className="action-item">
+                        <span className="action-check" aria-hidden="true">
+                          <Icon name="check" size={18} />
+                        </span>
+                        <span>{action}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              {alternates.length > 0 && (
+                <div style={{ marginTop: "1rem" }}>
+                  {alternates.map((item) => (
+                    <div key={item.crop} className="list-row">
+                      <span style={{ fontWeight: 600 }}>{item.display_crop}</span>
+                      <span className="badge">
+                        {t("common.bestMatch")}: {Math.round(item.probability * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
-            <div className="empty-state-illust">
-              <div className="illust-icon">🌾</div>
-              <p className="muted-copy">{t("crop.empty")}</p>
-            </div>
+            <EmptyState icon="plant" message={t("crop.empty")} />
           )}
         </article>
       </section>

@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:standalone": "node .next/standalone/server.js",
+    "start:standalone": "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && node .next/standalone/server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "bootstrap:data": "cd ml-service && ./.venv/bin/python scripts/bootstrap_datasets.py",
