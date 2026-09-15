@@ -63,3 +63,8 @@ ml-service/artifacts/leaf_model.joblib
 # APY raw exports are transient: build_apy_dataset.py turns them into
 # data/apy_long.csv.gz, which is what gets committed.
 ml-service/data/apy_raw/
+
+# secrets, build output and local noise
+.env.local
+*.log
+.pytest_cache/
